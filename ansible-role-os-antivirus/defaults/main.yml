@@ -1,0 +1,5 @@
+---
+path_mcafeeagent: software-iac/windows/mcafee-agente/FramePkg.exe
+productid_mcafeeagent: '{6256F19B-18EB-4942-8A7C-5A0A9DABFA35}'
+path_mcafeevse: software-iac/windows/mcafee-vse
+productid_mcafeevse: '{CE15D1B6-19B6-4D4D-8F43-CF5D2C3356FF}'

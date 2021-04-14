@@ -1,0 +1,24 @@
+---
+# tasks file for arengifoc.elk
+- name: Configurar pre-requisitos
+  include_tasks: requisite-tasks.yml
+
+- name: Despliegue de Elasticsearch
+  include_tasks: elasticsearch-tasks.yml
+  when: inventory_hostname == "elasticsearch"
+
+- name: Despliegue de Docker
+  include_tasks: docker-tasks.yml
+  when: inventory_hostname in ['logstash','kibana']
+
+- name: Despliegue de Kibana
+  include_tasks: kibana-tasks.yml
+  when: inventory_hostname == 'kibana'
+
+- name: Despliegue de Logstash
+  include_tasks: logstash-tasks.yml
+  when: inventory_hostname == 'logstash'
+
+- name: Despliegue de Maven
+  include_tasks: maven-tasks.yml
+  when: inventory_hostname == 'maven'

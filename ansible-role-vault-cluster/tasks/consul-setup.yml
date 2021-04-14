@@ -1,0 +1,19 @@
+---
+- name: Instalar consul
+  include_tasks: consul-common.yml
+
+- name: Crear configuracion JSON de consul server
+  template:
+    src: templates/consul-server.json.j2
+    dest: /etc/consul/consul.json
+    mode: 0640
+    owner: consul
+    group: consul
+  register: consul_config
+
+- name: Reiniciar servicio consul server
+  service:
+    name: consul
+    state: restarted
+    enabled: yes
+  when: consul_config.changed

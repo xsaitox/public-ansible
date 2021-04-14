@@ -1,0 +1,16 @@
+---
+# vars file for ansible-role-vault-setup
+yum_dependencies:
+  - jq
+  - unzip
+  - libselinux-python
+apt_dependencies:
+  - jq
+  - unzip
+  - python3-simplejson
+  - python3-openssl
+  - python3-jinja2
+# vault_version: 1.5.5
+# change_hostname: no
+# tls_disable: 1
+stage: install

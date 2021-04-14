@@ -1,0 +1,105 @@
+---
+- name: Activar firewall de Windows
+  win_firewall:
+    state: enabled
+    profiles:
+      - Domain
+      - Public
+      - Private
+    tags: enable_firewall
+
+- name: Regla de firewall para permitir respuestas ICMP
+  win_firewall_rule:
+    name: ICMP (Ping)
+    action: allow
+    direction: in
+    protocol: icmpv4:8,any
+    profiles:
+      - Domain
+      - Public
+      - Private
+    state: present
+    enabled: yes
+
+- name: Abrir firewall para servicio Remote Desktop
+  win_firewall_rule:
+    name: Remote Desktop
+    localport: 3389
+    action: allow
+    direction: in
+    protocol: tcp
+    profiles:
+      - Domain
+      - Public
+      - Private
+    state: present
+    enabled: yes
+
+- name: Bloquear WinRM sin SSL
+  win_firewall_rule:
+    name: WinRM HTTP
+    localport: 5985
+    action: block
+    direction: in
+    protocol: tcp
+    profiles:
+      - Domain
+      - Public
+      - Private
+    state: present
+    enabled: yes
+
+- name: Configurar duracion maxima de clave
+  win_security_policy:
+    section: System Access
+    key: MaximumPasswordAge
+    value: "{{ maxpassage }}"
+
+- name: Configurar duracion minima de clave
+  win_security_policy:
+    section: System Access
+    key: MinimumPasswordAge
+    value: "{{ minpassage }}"
+
+- name: Configurar longitud minima de clave
+  win_security_policy:
+    section: System Access
+    key: MinimumPasswordLength
+    value: "{{ minpasslen }}"
+
+- name: Configurar cantidad de claves a recordar en reuso
+  win_security_policy:
+    section: System Access
+    key: PasswordHistorySize
+    value: "{{ passhistsize }}"
+
+- name: Configurar cantidad de intentos fallidos para bloqueo de cuenta
+  win_security_policy:
+    section: System Access
+    key: LockoutBadCount
+    value: "{{ lockoutbadcount }}"
+
+- name: Configurar duracion de bloqueo de cuenta
+  win_security_policy:
+    section: System Access
+    key: LockoutDuration
+    value: "{{ lockoutduration }}"
+
+- name: Configurar politica de auditoria en eventos fallidos y exitosos
+  win_audit_policy_system:
+    category: "{{ item }}"
+    audit_type: success, failure
+  with_items:
+    - Account Management
+    - Account Logon
+    - Logon/Logoff
+    - Policy Change
+    - System
+
+- name: Configurar politica de auditoria en eventos fallidos
+  win_audit_policy_system:
+    category: "{{ item }}"
+    audit_type: failure
+  with_items:
+    - Object Access
+    - DS Access

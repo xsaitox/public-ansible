@@ -1,0 +1,3 @@
+---
+- name: restart_sysstat
+  service: name=sysstat state=restarted enabled=true

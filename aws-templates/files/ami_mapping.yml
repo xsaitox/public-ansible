@@ -1,0 +1,69 @@
+---
+amis:
+  - friendly_name: Amazon Linux
+    short_name: amzn
+    owners: 137112412989
+    root_device_type: ebs
+    name: amzn-ami-hvm-????.??.*.????????-x86_64-gp2
+    ssh_user: ec2-user
+
+  - friendly_name: Amazon Linux 2
+    short_name: amzn2
+    owners: 137112412989
+    root_device_type: ebs
+    name: amzn2-ami-hvm-2.0.????????-x86_64-gp2
+    ssh_user: ec2-user
+
+  - friendly_name: Ubuntu Server 18.04
+    short_name: ubuntuserver-1804
+    owners: 099720109477
+    root_device_type: ebs
+    name: ubuntu/images/*/ubuntu-bionic-18.04-amd64-server-*
+    ssh_user: ubuntu
+
+  - friendly_name: SLES 12
+    short_name: sles-12
+    owners: 013907871322
+    root_device_type: ebs
+    name: suse-sles-12-sp4-v20??????-hvm-ssd-x86_64
+    ssh_user: ec2-user
+
+  - friendly_name: CentOS 7
+    short_name: centos-7
+    owners: aws-marketplace
+    root_device_type: ebs
+    product_code: aw0evgkw8e5c1q413zgy5pjce
+    ssh_user: centos
+
+  - friendly_name: RHEL 7
+    short_name: rhel-7
+    owners: 309956199498
+    root_device_type: ebs
+    name: RHEL-7.6_HVM-20??????-x86_64-0-Hourly2-GP2
+    ssh_user: ec2-user
+
+  - friendly_name: RHEL 8
+    short_name: rhel-8
+    owners: 309956199498
+    root_device_type: ebs
+    name: RHEL-8.0.0_HVM-20??????-x86_64-1-Hourly2-GP2
+    ssh_user: ec2-user
+
+  - friendly_name: Windows Server 2012 R2
+    short_name: windows-server-2012R2
+    owners: 801119661308
+    root_device_type: ebs
+    name: Windows_Server-2012-R2_RTM-English-64Bit-Base-*
+
+  - friendly_name: Windows Server 2016
+    short_name: windows-server-2016
+    owners: 801119661308
+    root_device_type: ebs
+    name: Windows_Server-2016-English-Full-Base-*
+
+  - friendly_name: Windows Server 2019
+    short_name: windows-server-2019
+    owners: 801119661308
+    root_device_type: ebs
+    name: Windows_Server-2019-English-Full-Base-*
+

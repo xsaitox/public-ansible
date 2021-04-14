@@ -1,0 +1,28 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: yes
+  environment:
+    TZ: America/Lima
+  vars:
+    fecha: "{{ ansible_date_time.month }}-{{ ansible_date_time.year }}"
+  tasks:
+    - name: Enviar reporte por correo 
+      mail: 
+        host: "{{ smtp_server }}" 
+        port: 25 
+        from: "{{ mail_from }}" 
+        to: "{{ mail_to }}"
+        cc: "{{ mail_copy | default(omit) }}"
+        subject: "{{ mail_subject }} {{ fecha }}"
+        body: "{{ mail_body }} {{ fecha }}"
+        attach: 
+          - files/{{ report_name_prefix }}-LUNs.xlsx
+          - files/{{ report_name_prefix }}-VMs.xlsx
+
+    - name: Borrar archivos temporales generados
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - "files/*.xlsx"

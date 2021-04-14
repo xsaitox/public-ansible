@@ -1,0 +1,15 @@
+---
+vcenter_hostname: ""
+vcenter_username: ""
+vcenter_password: ""
+datacenter: ""
+vm_folder: ""
+template: ""
+validate_certs: False
+vm_annotation: ""
+os_dns: ""
+os_ipaddr: ""
+vm_state: poweredon
+wait_for_ip: True
+add_paging_disk: True
+paging_factor: 1.5

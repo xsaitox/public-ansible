@@ -1,0 +1,14 @@
+- src: https://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-basevars
+  scm: git
+  version: master
+  name: canvia.os-basevars
+
+- src: https://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-antivirus
+  scm: git
+  version: master
+  name: canvia.os-antivirus
+
+- src: https://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-customization
+  scm: git
+  version: master
+  name: canvia.os-customization

@@ -1,0 +1,41 @@
+--- 
+- hosts: all
+  gather_facts: yes 
+  tasks: 
+    - name: Definir variables de sistema
+      include_role:
+        name: canvia.os-basevars
+
+    - debug:
+        msg:
+          - "{{ os }}"
+          - "{{ os_release }}"
+
+    - debug:
+        msg: No es Windows 2012
+      when: not (os == 'windows' and os_release | regex_search('2012', ignorecase=True))
+
+    - debug:
+        msg: Si es Windows 2012
+      when: (os == 'windows' and os_release | regex_search('2012', ignorecase=True))
+
+    - name: Actualizar parches de sistema operativo
+      include_role:
+        name: canvia.os-update
+      when: not (os == 'windows' and os_release | regex_search('2012', ignorecase=True))
+
+    - name: Configurar linea base de sistema operativo
+      include_role:
+        name: canvia.os-baseline
+
+    - name: Aplicar hardening
+      include_role:
+        name: canvia.os-hardening
+
+    - name: Configurar usuarios de sistema operativo
+      include_role:
+        name: canvia.os-users
+
+    - name: Configurar monitoreo de sistema
+      include_role:
+        name: canvia.os-monitoring

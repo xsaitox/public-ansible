@@ -1,0 +1,101 @@
+---
+- name: Configurar SSH - Deshabilitar consultas DNS
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^UseDNS'
+    line: "UseDNS no"
+
+- name: Configurar SSH - Ajustes de keepalive 1
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveInterval'
+    line: "ClientAliveInterval 30"
+
+- name: Configurar SSH - Ajustes de keepalive 2
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveCountMax'
+    line: "ClientAliveCountMax 5"
+
+- name: Desactivacion de Firewall Linux
+  when:
+    firewall_enabled is not defined or
+    (firewall_enabled == False or firewall_enabled == "no")
+  block:
+    - name: Desactivar iptables en Red Hat/CentOS 6
+      service:
+        name: iptables
+        state: stopped
+        enabled: no
+      when:
+        os_vendor == "Amazon Linux AMI" or
+        (ansible_os_family == 'RedHat' and
+        os_release.split('.')[0] == "6")
+    
+    - name: Desactivar FirewallD en Red Hat/CentOS 7
+      service:
+        name: firewalld
+        state: stopped
+        enabled: no
+      when:
+        os_vendor == "Amazon Linux" or
+        (ansible_os_family == 'RedHat' and
+        os_release.split('.')[0] == "7")
+    
+    - name: Desactivar SuSEfirewall2 en SUSE 11
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      with_items:
+        - SuSEfirewall2_init
+        - SuSEfirewall2_setup
+      when: ansible_os_family == 'Suse' and os_release.split('.')[0] == "11"
+    
+    - name: Desactivar SuSEfirewall2 en SUSE 12
+      service:
+        name: SuSEfirewall2
+        state: stopped
+        enabled: no
+      when: ansible_os_family == 'Suse' and os_release.split('.')[0] == "12"
+
+- name: Instalar software de Red Hat/CentOS
+  include_tasks: linux-redhat-software-installation.yml
+  when:
+    os_vendor == "CentOS Linux" or
+    os_vendor == "Red Hat Enterprise Linux Server"
+
+- name: Instalar software de Amazon
+  include_tasks: linux-amazon-software-installation.yml
+  when:
+    os_vendor == "Amazon Linux AMI"
+
+- name: Instalar software de Amazon 2
+  include_tasks: linux-amazon2-software-installation.yml
+  when:
+    os_vendor == "Amazon Linux"
+
+- name: Instalar software de SUSE
+  include_tasks: linux-suse-software-installation.yml
+  when: ansible_os_family == 'Suse'
+
+- name: Instalar software de Debian/Ubuntu
+  include_tasks: linux-debian-software-installation.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Personalizacion de parametros de kernel en RHEL/CentOS
+  when:
+    os_vendor == "CentOS Linux" or
+    os_vendor == "Red Hat Enterprise Linux Server"
+  block:
+    - name: Remover parametros rhgb y quiet en RHEL/CentOS
+      replace:
+        path: /etc/default/grub
+        regexp: 'rhgb|quiet'
+      register: edit_grub
+
+    - name: Regenerar configuracion de grub
+      shell: |
+        grub2-mkconfig -o /boot/grub2/grub.cfg
+      register: reconf_grub
+      when: edit_grub.changed == True

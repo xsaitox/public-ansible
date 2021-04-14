@@ -1,0 +1,21 @@
+to_entries |
+map(
+    if .key == "spec"
+    then
+        {
+            "key": .key,
+            "value": .value |
+                map(
+                    if .question_name == "Red LAN"
+                    then
+                        . + { "choices" : "{{ cmd_result }}" }
+                    else
+                        .
+                    end
+                )
+        }
+    else
+        .
+    end
+    ) |
+from_entries

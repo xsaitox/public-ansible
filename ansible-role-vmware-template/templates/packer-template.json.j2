@@ -1,0 +1,42 @@
+{
+    "sensitive-variables":      [ "vmware_password", "os_adminpass", "default_pass" ],
+    "builders": [
+        {
+            "type":                 "vsphere-clone",
+            "datacenter":           "{{ desired_env.dc }}",
+            "vcenter_server":       "{{ vmware_host }}",
+            "username":             "{{ vmware_user }}",
+            "password":             "{{ '{{' }} user `vmware_password` {{ '}}' }}",
+            "insecure_connection":  true,
+            "vm_name":              "img_{{ desired_os.short_name }}_{{ datetime }}",
+            "cluster":              "{{ vm_cluster }}",
+            "folder":               "{{ vm_folder }}",
+            "resource_pool":        "{{ vm_resourcepool }}",
+            "template":             "{{ vm_template }}",
+            "datastore":            "{{ vm_datastore }}",
+            "CPUs":                  "{{ desired_os.cpus }}",
+            "CPU_limit":             -1,
+            "RAM":                   "{{ desired_os.memory }}",
+            "RAM_reserve_all":       true,
+            "disk_size":             "{{ desired_os.disk_size }}",
+            "linked_clone":          false,
+
+            {% if os | regex_search("win", ignorecase=True) }%"communicator":          "winrm",
+            "winrm_username":        "{{ desired_os.admin_user }}",
+            "winrm_password":        "{{ '{{' }} user `default_pass` {{ '}}' }}",
+            "winrm_use_ssl":         true,
+            "winrm_insecure":        true,{% else %}"communicator":          "ssh",
+            "ssh_username":        "{{ desired_os.admin_user }}",
+            "ssh_password":        "{{ '{{' }} user `default_pass` {{ '}}' }}",{% endif %}
+            "convert_to_template":   true
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell-local",
+            "inline":   [
+                "ansible-playbook -i inventory.ini postinstall.yml"
+            ]
+        }
+    ]
+}

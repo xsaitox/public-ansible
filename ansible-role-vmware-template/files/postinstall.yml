@@ -1,0 +1,10 @@
+---
+- hosts: all
+  gather_facts: yes
+  roles:
+    - os-basevars
+    - os-baseline
+    - os-hardening
+    - os-users
+    - os-monitoring
+    # - os-update

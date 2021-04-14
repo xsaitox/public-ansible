@@ -1,0 +1,4 @@
+---
+- name: Instalacion de antivirus
+  include_tasks: windows-antivirus.yml
+  when: ansible_system == 'Win32NT'

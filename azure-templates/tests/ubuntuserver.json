@@ -1,0 +1,7 @@
+{
+  "os_sku": "UbuntuServer_18.04-LTS",
+  "location": "East US",
+  "vm_size": "Standard_B1s",
+  "managed_image_resource_group_name": "RG_DelRosario",
+  "resource_group_name": "RG_DelRosario"
+}

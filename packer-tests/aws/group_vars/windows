@@ -1,0 +1,4 @@
+ansible_connection: winrm
+ansible_winrm_server_cert_validation: ignore
+ansible_user: administrator
+ansible_password: R-2TTdfIeNxwwA(DtuMvP(w5BW=UrmV5

@@ -1,0 +1,30 @@
+---
+# tasks file for ansible-role-app-bacula
+- name: Configuracion de disco
+  include_tasks: bacula-disk-setup.yml
+
+- name: Verificar instalacion pre-existente de Bacula
+  command: which bacula-dir
+  failed_when: 1 == 2
+  register: bacula_dir_found
+
+- name: Instalacion de Bacula desde fuentes
+  when: bacula_dir_found.rc != 0
+  include_tasks: bacula-build.yml
+
+- name: Verificar instalacion exitosa de Bacula
+  command: which bacula-dir
+  failed_when: 1 == 2
+  register: bacula_dir_found
+
+- name: Configuracion de BD de Bacula
+  when: bacula_dir_found.rc == 0
+  include_tasks: bacula-bd-setup.yml
+
+- name: Configuracion de Bacula
+  when: bacula_dir_found.rc == 0
+  include_tasks: bacula-config.yml
+
+- name: Configuracion de Bacula GUI
+  when: bacula_dir_found.rc == 0
+  include_tasks: bacula-gui-config.yml

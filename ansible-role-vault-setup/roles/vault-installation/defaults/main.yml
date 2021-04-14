@@ -1,0 +1,26 @@
+---
+# defaults file for ansible-role-vault-setup
+vault_user: vault
+vault_group: vault
+vault_config_filename: config.hcl
+vault_config_dir: /etc/vault
+vault_runtime_dir: /var/run/vault
+vault_data_dir: /var/vault/data
+vault_audit_dir: /var/vault/log
+vault_audit_file: audit_log.json
+vault_audit_maxkeep: 12
+vault_bin_dir: /usr/local/bin
+vault_syslog_facility: DEBUG
+vault_syslog_enabled: yes
+vault_ui_enabled: yes
+vault_version: 1.4.2
+vault_home_dir: /var/vault
+vault_shell: /usr/sbin/nologin
+vault_url: https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip
+vault_hostname: localhost
+vault_key_shares: 5
+vault_key_threshold: 3
+stage: install
+change_hostname: no
+vault_address: 8200
+vault_cluster_address: 8201

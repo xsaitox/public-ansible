@@ -1,0 +1,7 @@
+ansible_connection: winrm
+ansible_user: administrator
+ansible_password: P4k42019..
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5986
+ansible_winrm_connection_timeout: 1200
+ansible_winrm_transport: ntlm

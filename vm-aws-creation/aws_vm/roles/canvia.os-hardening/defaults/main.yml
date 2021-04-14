@@ -1,0 +1,13 @@
+---
+cliente_banner: Canvia
+ssh_password_authentication: ["yes"]
+ssh_permit_root_login: ["yes"]
+minpasslen: 8
+passhistsize: 6
+maxpassage: 90
+minpassage: 1
+passwarnage: 7
+passmaxclassrepeat: 3
+lockoutbadcount: 5
+lockoutduration: 30
+inactivitylogout: 900

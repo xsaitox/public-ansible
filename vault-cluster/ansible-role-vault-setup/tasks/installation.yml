@@ -1,0 +1,171 @@
+---
+# tasks file for ansible-role-vault-setup
+- name: Verificar existencia de yum
+  register: yum_available
+  failed_when: yum_available.rc not in [0,1]
+  command: which yum
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin"
+    
+- name: Verificar existencia de apt
+  register: apt_available
+  failed_when: apt_available.rc not in [0,1]
+  command: which apt
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin"
+    
+- name: Instalar dependencias (CentOS)
+  when:
+    - yum_available.rc == 0
+    - ansible_distribution is defined
+    - ansible_distribution == "CentOS"
+  yum:
+    name: epel-release
+    state: present
+
+- name: Instalar dependencias (RedHat/CentOS/Amazon Linux)
+  when: yum_available.rc == 0
+  yum:
+    name: "{{ yum_dependencies }}"
+    state: present
+
+- name: Instalar dependencias (Debian/Ubuntu)
+  when: apt_available.rc == 0
+  apt:
+    name: "{{ apt_dependencies }}"
+    state: present
+    update_cache: yes
+
+- name: Verificar existencia de FirewallD
+  when: ansible_os_family == 'RedHat'
+  command: rpm -q firewalld
+  register: rpm_firewalld
+  failed_when: rpm_firewalld.rc not in [0,1]
+
+- name: Deshabilitar FirewallD
+  when:
+    - ansible_os_family == 'RedHat'
+    - rpm_firewalld.rc == 0
+  service:
+    name: firewalld
+    state: stopped
+    enabled: no
+
+- name: Verificar instalacion existente de vault
+  command: which vault
+  register: vault_command
+  failed_when: vault_command.rc not in [0,1]
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Verificar version existente de Vault
+  when: vault_command.rc == 0
+  shell: vault -version | awk '{ print $2 }' | tr -d 'v'
+  register: vault_cur_version
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Crear grupo para vault
+  group:
+    name: "{{ vault_group }}"
+    system: yes
+
+- name: Crear usuario para vault
+  user:
+    name: "{{ vault_user }}"
+    system: yes
+    group: "{{ vault_group }}"
+    create_home: no
+    home: "{{ vault_home_dir }}"
+    shell: "{{ vault_shell }}"
+
+- name: Crear directorio $HOME de vault
+  file:
+    state: directory
+    path: "{{ vault_home_dir }}"
+    mode: 0750
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+
+- name: Crear directorios de trabajo de vault
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0750
+    recurse: yes
+  with_items:
+    - "{{ vault_config_dir }}"
+    - "{{ vault_data_dir }}"
+    - "{{ vault_runtime_dir }}"
+    - "{{ vault_audit_dir }}"
+
+- name: Crear directorios de binario de vault
+  file:
+    state: directory
+    path: "{{ vault_bin_dir }}"
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Descargar vault {{ vault_version }}
+  when:
+    vault_command.rc != 0 or
+    (vault_command.rc == 0 and vault_cur_version.stdout != vault_version)
+  get_url:
+    url: "{{ vault_url }}"
+    dest: /tmp/{{ vault_url | basename }}
+    mode: 0644
+  register: vault_download
+
+- name: Descomprimir vault
+  unarchive:
+    src: /tmp/{{ vault_url | basename }}
+    remote_src: yes
+    dest: "{{ vault_bin_dir }}"
+    mode: 0755
+    owner: root
+    group: root
+  when: vault_download.changed
+
+- name: Eliminar zip de vault
+  file:
+    state: absent
+    path: /tmp/{{ vault_url | basename }}
+  when: vault_download.changed
+
+- name: Crear configuracion tmpfiles.d de vault
+  register: tmpfiles_conf
+  template:
+    src: templates/tmpfiles.conf.j2
+    dest: /etc/tmpfiles.d/vault.conf
+    mode: 0755
+    owner: root
+    group: root
+  when: vault_download.changed
+
+- name: Aplicar cambios tmpfiles.d de vault
+  command: systemd-tmpfiles --create
+  when: tmpfiles_conf.changed
+
+- name: Habilitar autocompletado vault
+  command: vault -autocomplete-install
+  register: vault_autocomplete
+  failed_when: vault_autocomplete.rc not in [0,1]
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Crear configuracion de servicio vault
+  when: vault_download.changed
+  template:
+    src: templates/vault.service.j2
+    dest: /etc/systemd/system/vault.service
+    mode: 0644
+    owner: root
+    group: root
+  register: vault_service
+
+- name: Recargar systemd    
+  command: systemctl daemon-reload
+  when: vault_service.changed

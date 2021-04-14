@@ -1,0 +1,272 @@
+---
+- name: Crear directorios necesarios
+  file:
+    state: directory
+    path: "{{ item }}"
+    mode: 0755
+    owner: root
+    group: root
+  with_items:
+    - /scripts
+    - /nmondir
+
+- name: Activar cron de sysstat en Debian/Ubuntu
+  lineinfile:
+    path: /etc/default/sysstat
+    regexp: '^ENABLED'
+    line: 'ENABLED="true"'
+  when:
+    os_vendor == 'ubuntu'
+  notify: restart_sysstat
+
+- name: Activar cron de sysstat en SUSE
+  file:
+    path: /etc/cron.d/sysstat.cron
+    src: /etc/sysstat/sysstat.cron
+    state: link
+  when:
+    os_vendor == 'sles'
+  ignore_errors: true
+
+- name: Montar carpeta de instaladores
+  mount:
+    path: /mnt/{{ tmpjob | default(omit) }}
+    src: "{{ smbinst_share }}"
+    fstype: cifs
+    opts: "ro,username={{ smbinst_user }},domain={{ smbinst_domain }},password={{ smbinst_pass }}"
+    state: mounted
+  delegate_to: localhost
+  become: yes
+
+- name: Copiar binario de nmon en SUSE 11
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/software-iac/linux/nmon/nmon16g_x86_sles114
+    dest: /usr/local/bin/nmon
+    mode: 0755
+  when:
+    os_vendor == 'sles' and
+    os_release.split('.')[0] == '11'
+
+- name: Copiar binario de nmon en SUSE 12
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/software-iac/linux/nmon/nmon16g_x86_sles12
+    dest: /usr/local/bin/nmon
+    mode: 0755
+  when:
+    os_vendor == 'sles' and
+    os_release.split('.')[0] == '12'
+
+- name: Copiar binario de nmon en RedHat/CentOS 6 / Oracle 6
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/software-iac/linux/nmon/nmon16g_rhel6
+    dest: /usr/local/bin/nmon
+    mode: 0755
+  when:
+    (os_vendor == 'amazon' and os_release != '2') or
+    ( ansible_os_family == "RedHat" and 
+    ansible_distribution_major_version|int == 6 )
+
+- name: Copiar binario de nmon en RedHat/CentOS 7/ Oracle 7
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/software-iac/linux/nmon/nmon16g_x86_rhel72
+    dest: /usr/local/bin/nmon
+    mode: 0755
+  when:
+    (os_vendor == 'amazon' and os_release == '2') or
+    ( ansible_os_family == "RedHat" and
+    ansible_distribution_major_version|int >= 7 )
+
+- name: Crear cron de nmon
+  template:
+    src: templates/nmon.cron
+    dest: /etc/cron.d
+    mode: 0644
+
+- name: Copiar script de reportes de nmon
+  template:
+    src: files/reportes.sh
+    dest: /scripts
+    mode: 0755
+
+- name: Configurar script de arranque de nmon en RHEL 6
+  lineinfile:
+    path: /etc/rc.d/rc.local
+    state: present
+    regexp: '^/scripts/reportes.sh -c -d'
+    line: '/scripts/reportes.sh -c -d'
+  when:
+    (os_vendor == 'amazon' and os_release != '2') or
+    ((os_vendor == 'rhel' or 
+      os_vendor == 'centos' or 
+      os_vendor == 'oracle') and os_release.split('.')[0] == '6')
+
+- lineinfile:
+    path: /etc/rc.d/rc.local
+    state: present
+    regexp: '^/scripts/reportes.sh -c -m'
+    line: '/scripts/reportes.sh -c -m'
+  when:
+    (os_vendor == 'amazon' and os_release != '2') or
+    ((os_vendor == 'rhel' or os_vendor == 'centos' or
+      os_vendor == 'oracle') and os_release.split('.')[0] == '6')
+
+- name: Configurar script de arranque de nmon en SUSE 11
+  lineinfile:
+    path: /etc/rc.d/boot.local
+    state: present
+    regexp: '^/scripts/reportes.sh -c -d'
+    line: '/scripts/reportes.sh -c -d'
+  when:
+    os_vendor == 'sles' and
+    os_release.split('.')[0] == '11'
+
+- lineinfile:
+    path: /etc/rc.d/boot.local
+    state: present
+    regexp: '^/scripts/reportes.sh -c -m'
+    line: '/scripts/reportes.sh -c -m'
+  when:
+    os_vendor == 'sles' and
+    os_release.split('.')[0] == '11'
+
+- name: Configurar servicio systemd para nmon en Amazon 2, Debian/Ubuntu, RHEL 7, Oracle o SLES 12
+  template:
+    src: "{{ item }}"
+    dest: /etc/systemd/system
+    mode: 0644
+  with_items:
+    - templates/nmon-daily.service
+    - templates/nmon-monthly.service
+  when:
+    (os_vendor == 'amazon' and os_release == '2') or
+    (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or
+    (ansible_distribution == "Debian" and ansible_distribution_major_version|int >=9) or  
+    (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >=16)
+
+- name: Habilitar servicio systemd para nmon en Amazon 2, Debian/Ubuntu, RHEL 7, Oracle o SLES 12 
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+  with_items:
+    - nmon-daily.service
+    - nmon-monthly.service
+  when:
+    (os_vendor == 'amazon' and os_release == '2') or
+    (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or
+    (ansible_distribution == "Debian" and ansible_distribution_major_version|int >=9) or  
+    (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >=16)
+
+- name: Ejecutar script de reportes de nmon
+  shell: /scripts/reportes.sh -c -d ; /scripts/reportes.sh -c -m
+
+- name: Copiar scripts de monitoreo de memoria y paginacion
+  template:
+    src: "{{ item }}"
+    dest: /scripts
+    mode: 0755
+  with_items:
+    - files/memuso.sh
+    - files/paginguso.sh
+
+- name: Verificar que exista archivo snmpd.conf
+  stat:
+    path: /etc/snmp/snmpd.conf
+  register: snmpd_result
+
+- name: Configurar agente SNMP en snmpd.conf
+  when: snmpd_result.stat.exists == True
+  block:
+    - name: Configurar comunidad SNMP
+      lineinfile:
+        path: /etc/snmp/snmpd.conf
+        state: present
+        regexp: "^rocommunity.*{{ snmp_community }}"
+        line: "rocommunity {{ snmp_community }}"
+
+    - name: Configurar OID personalizada para monitoreo de memoria
+      lineinfile:
+        path: /etc/snmp/snmpd.conf
+        state: present
+        regexp: "^extend.*memuso"
+        line: "extend memuso /scripts/memuso.sh"
+
+    - name: Configurar OID personalizada para monitoreo de actividad de paginacion
+      lineinfile:
+        path: /etc/snmp/snmpd.conf
+        state: present
+        regexp: "^extend.*paginguso"
+        line: "extend paginguso /scripts/paginguso.sh"
+
+    - name: Habilitar snmpd
+      service:
+        name: snmpd
+        enabled: yes
+        state: restarted
+
+- name: Copiar instalador de agente Pandora para Amazon/RedHat/CentOS/Oracle
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/{{ path_pandoraagentrpmredhat }}
+    dest: /tmp
+  when:
+    ansible_os_family == "RedHat"
+
+- name: Copiar instalador de agente Pandora para SUSE
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/{{ path_pandoraagentrpmsuse }}
+    dest: /tmp
+  when:
+    os_vendor == 'sles'
+
+- name: Copiar instalador de agente Pandora para Debian/Ubuntu
+  copy:
+    src: /mnt/{{ tmpjob | default(omit) }}/{{ path_pandoraagentdeb }}
+    dest: /tmp
+  when:
+    os_vendor == 'ubuntu' or 
+    os_vendor == 'debian'
+
+- name: Instalar agente de Pandora en SUSE
+  zypper:
+    name: /tmp/{{ path_pandoraagentrpmsuse | basename }}
+    state: latest
+    disable_gpg_check: yes
+  when:
+    os_vendor == 'sles'
+
+- name: Instalar agente de Pandora en Amazon, RedHat/CentOS
+  yum:
+    name: /tmp/{{ path_pandoraagentrpmredhat | basename }}
+    state: latest
+    disable_gpg_check: yes
+  when:
+    ansible_os_family == "RedHat"
+
+- name: Instalar agente de Pandora en Debian
+  apt:
+    deb: /tmp/{{ path_pandoraagentdeb | basename }}
+    state: present
+  when:
+    os_vendor == 'ubuntu' or 
+    os_vendor == 'debian'
+
+- name: Dejar deshabilitado el inicio de agente Pandora
+  service:
+    name: pandora_agent_daemon
+    enabled: no
+    state: stopped
+
+- name: Borrar archivos de instalacion usados remotamente
+  file:
+    path: /tmp/{{ item }}
+    state: absent
+  with_items:
+    - "{{ path_pandoraagentrpmredhat | basename }}"
+    - "{{ path_pandoraagentrpmsuse | basename }}"
+    - "{{ path_pandoraagentdeb | basename }}"
+
+- name: Desmontar carpeta de instaladores
+  mount:
+    path: /mnt/{{ tmpjob | default(omit) }}
+    state: unmounted
+  delegate_to: localhost
+  become: yes

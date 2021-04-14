@@ -1,0 +1,133 @@
+---
+- name: Set OS type based on template name
+  no_log: True
+  block:
+    - name: Windows 2012 R2
+      set_fact:
+        vm_os_type: windows8Server64Guest
+      when: vm_template | regex_search('win2012', ignorecase=True)
+
+    - name: Windows 2016 or 2019
+      set_fact:
+        vm_os_type: windows9Server64Guest
+      when: vm_template | regex_search('win201[69]', ignorecase=True)
+
+    - name: Windows 8
+      set_fact:
+        vm_os_type: windows8_64Guest
+      when: vm_template | regex_search('win8', ignorecase=True)
+
+    - name: Windows 10
+      set_fact:
+        vm_os_type: windows9_64Guest
+      when: vm_template | regex_search('win10', ignorecase=True)
+
+    - name: Debian 7
+      set_fact:
+        vm_os_type: debian7_64Guest
+      when: vm_template | regex_search('debian7', ignorecase=True)
+
+    - name: Debian 8
+      set_fact:
+        vm_os_type: debian8_64Guest
+      when: vm_template | regex_search('debian8', ignorecase=True)
+
+    - name: Debian 9
+      set_fact:
+        vm_os_type: debian9_64Guest
+      when: vm_template | regex_search('debian9', ignorecase=True)
+
+    - name: Debian 10
+      set_fact:
+        vm_os_type: debian10_64Guest
+      when: vm_template | regex_search('debian10', ignorecase=True)
+
+    - name: Ubuntu
+      set_fact:
+        vm_os_type: ubuntu64Guest
+      when: vm_template | regex_search('ubu', ignorecase=True)
+
+    - name: CentOS 6
+      set_fact:
+        vm_os_type: centos6_64Guest
+      when: vm_template | regex_search('centos6', ignorecase=True)
+
+    - name: CentOS 7
+      set_fact:
+        vm_os_type: centos7_64Guest
+      when: vm_template | regex_search('centos7', ignorecase=True)
+
+    - name: CentOS 8
+      set_fact:
+        vm_os_type: centos8_64Guest
+      when: vm_template | regex_search('centos8', ignorecase=True)
+
+    - name: RHEL 6
+      set_fact:
+        vm_os_type: rhel6_64Guest
+      when: vm_template | regex_search('rhel6', ignorecase=True)
+
+    - name: RHEL 7
+      set_fact:
+        vm_os_type: rhel7_64Guest
+      when: vm_template | regex_search('rhel7', ignorecase=True)
+
+    - name: RHEL 8
+      set_fact:
+        vm_os_type: rhel8_64Guest
+      when: vm_template | regex_search('rhel8', ignorecase=True)
+
+    - name: openSUSE
+      set_fact:
+        vm_os_type: opensuse64Guest
+      when: vm_template | regex_search('opensuse', ignorecase=True)
+
+    - name: SLES 11
+      set_fact:
+        vm_os_type: sles11_64Guest
+      when: vm_template | regex_search('suse11', ignorecase=True)
+
+    - name: SLES 12
+      set_fact:
+        vm_os_type: sles12_64Guest
+      when: vm_template | regex_search('suse12', ignorecase=True)
+
+- name: Gather information from template {{ vm_template }}
+  vmware_guest_disk_info:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ vm_template }}"
+  register: result_template_info
+
+- name: Adjust OS disk size according to template {{ vm_template }}
+  set_fact:
+    vm_disks: "{{ [{'size_gb': (result_template_info.guest_disk_info['0'].capacity_in_kb / 1048576) | int, 'type': 'None'}] }}"
+
+- name: Add paging disk
+  set_fact:
+    vm_disks: "{{ vm_disks + [{'size_gb': ((vm_memory/1024) * paging_factor) | int, 'type': 'None'}] }}"
+  when:
+    - add_paging_disk
+    - paging_factor | type_debug in ["float","int"]
+
+- name: Add extra disks
+  set_fact:
+    vm_disks: "{{ vm_disks + [ {'size_gb': (item | int), 'type': 'None'} ] }}"
+  loop: "{{ vm_extradisks if vm_extradisks is number else vm_extradisks.split() }}"
+  loop_control:
+    label: Adding disk of {{ item }} GB to configuration
+  when: vm_extradisks is defined
+
+- name: Add networks
+  set_fact:
+    networks: "{{ networks | default([]) + [{'name': network_name, 'type': 'dhcp', 'device_type': 'vmxnet3', 'vlan': network_vlan}] }}"
+  loop: "{{ vm_networks.split() }}"
+  vars:
+    network_name: "{{ item.split(',')[0] }}"
+    network_vlan: "{{ item.split(',')[1] | int }}"
+  loop_control:
+    label: Adding network {{ network_name }} with VLAN {{ network_vlan }} to configuration
+  when: vm_networks is defined

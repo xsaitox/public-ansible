@@ -1,0 +1,12 @@
+{{ vault_audit_dir }}/{{ vault_audit_file }}
+{
+    missingok
+    sharedscripts
+    weekly
+    compress
+    dateext
+    rotate {{ vault_audit_maxkeep }}
+    postrotate
+        /usr/bin/systemctl kill -s HUP vault.service > /dev/null 2>&1 || true
+    endscript
+}

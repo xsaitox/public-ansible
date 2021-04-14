@@ -1,0 +1,91 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    vm_template: windows-2016-std-en
+    #
+    ansible_playbook: playbooks/ansible_windows-postinstall.yml
+    packer_config:    vmimage.json
+  tasks:
+    - name: Buscar credenciales de vCenter
+      set_fact:
+        vmware_host: "{{ lookup('env','VMWARE_HOST') }}"
+        vmware_user: "{{ lookup('env','VMWARE_USER') }}"
+        vmware_password: "{{ lookup('env','VMWARE_PASSWORD') }}"
+
+    - name: Aborar si no esten definidas las variables de entorno de VMware
+      fail:
+        msg: No se ha definido una o mas de las variables de entorno requeridas':' VMWARE_HOST, VMWARE_USER, VMWARE_PASSWORD
+      when:
+        vmware_host == "" or vmware_host is not defined or
+        vmware_user == "" or vmware_user is not defined or
+        vmware_password == "" or vmware_password is not defined
+
+    - name: Abortar si no estan definidas las variable indispensables
+      fail:
+        msg: No se ha definido una o mas de las variables requeridas':' vm_template
+      when:
+        vm_template is not defined
+        # vm_name is not defined or
+        # os_ipaddr is not defined or
+        # os_adminpass is not defined or
+        # template_folder is not defined
+
+    - name: Obtener ultimo template segun patron de VM {{ vm_template }}
+      command: ./files/list-templates.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} {{ vm_template }}
+      register: search_template
+
+    # - name: Mostrar resultado de busqueda
+    #   debug:
+    #     msg: "Plantilla':' {{ search_template.stdout }}"
+
+    # - name: Abortar temporalmente
+    #   fail:
+    #     msg: "Hasta aqui nomas, por ahora"
+
+    - name: Generar string aleatorio
+      shell: date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' '0lzeAsgtBa' | cut -c 1-12
+      register: random_name
+
+    - name: Definir nombre de job aleatorio
+      set_fact:
+        tmpjob: "{{ random_name.stdout }}"
+
+    - name: Construir imagen de {{ os_version }} con Packer desde template
+      shell: |
+        packer build \
+          -var 'vsphere_datacenter={{ vsphere_datacenter }}' \
+          -var 'vsphere_server={{ vsphere_server }}' \
+          -var 'vsphere_user={{ vsphere_user }}' \
+          -var 'vsphere_password={{ vsphere_password }}' \
+          -var 'vm_cluster={{ vm_cluster }}' \
+          -var 'vm_resourcepool={{ vm_resourcepool }}' \
+          -var 'vm_template={{ vm_template }}' \
+          -var 'vm_datastore={{ vm_datastore }}' \
+          -var 'vm_name={{ os_version }}' \
+          -var 'vm_folder={{ vm_folder }}' \
+          -var 'vm_cpus={{ vm_cpus }}' \
+          -var 'vm_memory={{ vm_memory }}' \
+          -var 'vm_disksize={{ vm_disksize }}' \
+          -var 'os_version={{ os_version }}' \
+          -var 'os_update="yes"' \
+          -var 'os_adminuser={{ os_adminuser }}' \
+          -var 'os_adminpass={{ os_adminpass }}' \
+          -var 'os_ipaddr={{ os_ipaddr }}' \
+          -var 'os_netmask={{ os_netmask }}' \
+          -var 'os_gateway={{ os_gateway }}' \
+          -var 'os_dns={{ os_dns }}' \
+          -var 'os_firstinstall="no"' \
+          -var 'ansible_playbook={{ ansible_playbook }}' \
+          {{ packer_args }} {{ packer_config.template }}
+      environment:
+        PATH: /usr/local/bin:/usr/local/sbin:/sbin:/usr/sbin:/bin:/usr/bin
+      vars:
+        vm_template: "{{ search_template.stdout }}"
+      register: packer_result
+      when: search_template.stdout is defined and search_template.stdout != ""
+
+    - name: Salida del comando packer
+      debug: msg={{ packer_result.stdout_lines }}
+      when: packer_result is defined and packer_result.changed == True

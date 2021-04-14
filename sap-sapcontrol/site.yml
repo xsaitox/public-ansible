@@ -1,0 +1,34 @@
+---
+- hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Validacion de variables
+      assert:
+        that:
+          - action is defined
+        fail_msg: "No se ha definido la variable \"action\""
+        success_msg: "Validacion exitosa de variables necesarias"
+
+    - name: Validar SAP en Linux
+      when: action == 'Validar' and ansible_system == 'Linux'
+      include_tasks: check_sap_linux.yml
+
+    - name: Validar SAP en Windows
+      when: action == 'Validar' and ansible_system == 'Win32NT'
+      include_tasks: check_sap_windows.yml
+
+    - name: Iniciar SAP en Linux
+      when: action == 'Iniciar' and ansible_system == 'Linux'
+      include_tasks: start_sap_linux.yml
+
+    - name: Iniciar SAP en Windows
+      when: action == 'Iniciar' and ansible_system == 'Win32NT'
+      include_tasks: start_sap_windows.yml
+
+    - name: Detener SAP en Linux
+      when: action == 'Detener' and ansible_system == 'Linux'
+      include_tasks: stop_sap_linux.yml
+
+    - name: Detener SAP en Windows
+      when: action == 'Detener' and ansible_system == 'Win32NT'
+      include_tasks: stop_sap_windows.yml

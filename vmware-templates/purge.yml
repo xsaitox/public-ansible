@@ -1,0 +1,34 @@
+- hosts: localhost
+  connection: local
+  environment:
+    TZ: America/Lima
+  gather_facts: yes
+  tasks:
+    - name: Validacion de parametros de vCenter
+      assert:
+        that:
+            - linux_cluster is defined
+            - windows_cluster is defined
+            - template_folder is defined
+            - vm_datastore is defined
+            - vm_folder is defined
+            - vm_resourcepool is defined
+            - vmware_host is defined
+            - vmware_user is defined
+            - vmware_password is defined
+            - vsphere_datacenter is defined
+        fail_msg: No se ha definido parametros de vCenter asociado a esta ejecucion
+        success_msg: Validacion exitosa de parametros vCenter
+
+    - name: Validacion de variables necesarias
+      assert:
+        that:
+            - maxkeep is defined
+            - os_images is defined
+        fail_msg: Una o mas variables requeridas no se han definido':' maxkeep, os_images
+        success_msg: Validacion exitosa de variables necesarias
+
+    - name: Depurar plantillas antiguas
+      command: ./files/purge-templates.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} {{ item }} {{ maxkeep }}
+      register: ps1_output
+      with_items: "{{ os_images }}"

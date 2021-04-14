@@ -1,0 +1,24 @@
+---
+- name: Deteniendo servicios de SAP con el usuario {{ ansible_user_id }} en Linux
+  shell: |
+    source $HOME/.sapenv.sh
+    export INSTNO=$(echo $d | awk '{ print substr($0,length($0)-1,2) }')
+    sapcontrol -nr $INSTNO -function StopSystem
+  args:
+    executable: /bin/bash
+  register: shell_cmd
+  ignore_errors: yes
+
+- name: Error de ejecucion de script (si aplica)
+  debug:
+    msg:
+      - "{{ shell_cmd.cmd }} : {{ shell_cmd.msg }}"
+  when: shell_cmd.failed
+
+- name: Mostrar salida de error (stderr)
+  debug:
+    msg: "{{ shell_cmd.stderr_lines if shell_cmd.stderr_lines is defined and shell_cmd.stderr_lines != [] else 'No hubo salida de error' }}"
+
+- name: Mostrar salida estandar (stdout)
+  debug:
+    msg: "{{ shell_cmd.stdout_lines if shell_cmd.stdout_lines is defined and shell_cmd.stdout_lines != [] else 'No hubo salida estandar' }}"

@@ -1,0 +1,6 @@
+[submodule "ansible-role-vault-setup"]
+	path = ansible-role-vault-setup
+	url = https://gitlab.com/arengifoc/ansible-role-vault-setup.git
+[submodule "ansible-role-consul-setup"]
+	path = ansible-role-consul-setup
+	url = https://gitlab.com/arengifoc/ansible-role-consul-setup.git

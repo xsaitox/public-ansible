@@ -1,0 +1,29 @@
+---
+- name: Capturar estado sealed de Vault
+  when: vault_token is defined
+  register: vault_seal_state
+  shell: vault status -format json | jq -r '.sealed'
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_TOKEN: "{{ vault_token }}"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Personalizar Vault
+  when: vault_seal_state.stdout == 'false'
+  block:
+    - name: Configurar licencia de Vault Enterprise
+      when:
+        - vault_license is defined 
+        - vault_version | regex_search('ent', ignorecase=True)
+      command: vault write sys/license text={{ vault_license }}
+      environment:
+        PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "{{ vault_addr }}"
+
+    - name: Configurar auditoria de Vault
+      command: vault audit enable file file_path={{ vault_audit_dir }}/{{ vault_audit_file }}
+      environment:
+        PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "{{ vault_addr }}"

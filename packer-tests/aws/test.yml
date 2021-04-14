@@ -1,0 +1,51 @@
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - win_ping:
+
+
+    - name: Crear clave aleatoria nueva para administrador
+      command: openssl rand -base64 20
+      delegate_to: localhost
+      register: newpass_cmd
+
+    - name: Guardar nueva clave en variable
+      set_fact:
+        new_pass: "{{ newpass_cmd.stdout }}"
+
+    - name: Crear usuario temporal
+      win_user:
+        name: automation
+        password: "{{ new_pass }}"
+        groups:
+          - Administrators
+
+    - name: Cambiarse al usuario temporal
+      set_fact:
+        ansible_user: automation
+        ansible_password: "{{ new_pass }}"
+
+    - name: Cambiar clave de administrator
+      win_user:
+        name: Administrator
+        password: "{{ new_pass }}"
+
+    - name: Cambiarse al usuario administrator de nuevo
+      set_fact:
+        ansible_user: administrator
+        ansible_password: "{{ new_pass }}"
+
+    - name: Eliminar usuario temporal
+      win_user:
+        name: automation
+        state: absent
+
+    - name: Crear carpeta de prueba
+      win_file:
+        path: C:\pruebita
+        state: directory
+
+    - name: Mostrar clave de usuario generada
+      debug:
+        msg: La nueva clave del usuario administrator es {{ new_pass }}

@@ -1,0 +1,2 @@
+# Comprimir y depurar antiguos logs de historial de comandos
+19 0 * * * root /scripts/compress-history-log.sh

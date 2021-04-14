@@ -1,0 +1,237 @@
+---
+- name: Habilitar firewall
+  block:
+      - name: Asegurarse de tener iptables instalado Red Hat/CentOS/Oracle "<=6"
+        yum:
+          name: iptables
+          state: present
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
+
+      - name: Copiar archivo iptables instalado a Red Hat/CentOS/Oracle "<=6"
+        copy:
+          src: files/iptables
+          dest: /etc/sysconfig/
+          owner: root
+          group: root
+          mode: u=rw,g=,o=
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
+
+      - name: Activar iptables en Red Hat/CentOS/Oracle "<=6"
+        service:
+          name: iptables
+          state: started
+          enabled: yes
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
+
+      - name: Asegurarse de tener firewalld instalado Red Hat/CentOS/Oracle ">=7"
+        yum:
+          name: firewalld
+          state: present
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+      - name: Activar FirewallD en Red Hat/CentOS/Oracle Red Hat/CentOS/Oracle ">=7"
+        service:
+          name: firewalld
+          state: started
+          enabled: yes
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 
+
+      - name: Abrir puertos en el firewall comunmente usados por el sistema
+        firewalld:
+          service: "{{ item }}"
+          permanent: yes
+          state: enabled
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+        with_items:
+          - snmp
+          - ssh
+
+      - name: Aplicar los cambios en las reglas de FirewallD
+        command: firewall-cmd --reload
+        when:
+          (hypervisor != 'aws' and hypervisor != 'azure') and
+          ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+- name: Hardening de cuentas de usuario
+  block:
+
+        - name: Configurar duracion maxima de clave
+          replace:
+            path: /etc/login.defs
+            regexp: '(^PASS_MAX_DAYS).*$'
+            replace: '\1\t{{ maxpassage }}'
+
+        - name: Configurar duracion minima de clave 
+          replace:
+            path: /etc/login.defs
+            regexp: '(^PASS_MIN_DAYS).*$'
+            replace: '\1\t{{ minpassage }}'
+
+        - name: Configurar longitud minima de clave
+          replace:
+            path: /etc/login.defs
+            regexp: '(^PASS_MIN_LEN).*$'
+            replace: '\1\t{{ minpasslen }}'
+
+        - name: Configurar dias de advertencia por expiracion de clave
+          replace:
+            path: /etc/login.defs
+            regexp: '(^PASS_WARN_AGE).*$'
+            replace: '\1\t{{ passwarnage }}'
+
+        - name: Hardening en RHEL/CentOS / Oracle Versiones >=7
+          when:
+            ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+          block:
+            - name: Configurar complejidad de claves de usuarios RedHat/CentOS/Oracle
+              shell: |
+                authconfig --passminlen={{ minpasslen }} --enablerequpper --enablereqlower --enablereqdigit --enablereqother --passmaxrepeat=3 --passmaxclassrepeat={{ passmaxclassrepeat }} --update
+                authconfig --enablefaillock --faillockargs="deny={{ lockoutbadcount }} unlock_time={{ lockoutduration*60 }} audit even_deny_root" --updateall
+
+            - name: Forzar las restricciones de clave tambien para root
+              replace:
+                path: "{{ item }}"
+                regexp: '(password[^\n]*requisite[^\n]*pam_pwquality.so[^\n]*authtok_type=)\n'
+                replace: '\1 enforce_for_root\n'
+              with_items:
+                - /etc/pam.d/system-auth
+                - /etc/pam.d/password-auth
+
+            - name: Evitar reutilizacion de ultimas claves de usuarios
+              lineinfile:
+                path: "{{ item }}"
+                regexp: "password.*requisite.*pam_pwhistory.so.*remember={{ passhistsize }}.*use_authtok"
+                insertafter: "password.*requisite.*pam_pwquality.so"
+                line: "password    requisite     pam_pwhistory.so remember={{ passhistsize }} use_authtok"
+                state: present
+              with_items:
+                - /etc/pam.d/system-auth
+                - /etc/pam.d/password-auth
+
+        - name: Configurar cierre automatico de sesion inactiva tras 15 minutos
+          lineinfile:
+            path: /etc/profile
+            state: present
+            regexp: '^export TMOUT'
+            line: 'export TMOUT={{ inactivitylogout }}'
+
+- name: Ajustes SSH
+  block:
+      - name: Configurar template de banner SSH
+        template:
+          src: templates/ssh_banner.txt.j2
+          dest: /etc/ssh/banner.txt"
+
+      - name: Configurar SSH - Banner
+        lineinfile:
+          path: /etc/ssh/sshd_config
+          regexp: '^Banner.*'
+          line: 'Banner /etc/ssh/banner.txt'
+
+      - name: Configurar SSH - Login permitido con password para usuarios de Canvia unicamente
+        blockinfile:
+          path: /etc/ssh/sshd_config
+          block: |
+            Match User cnv*
+              PasswordAuthentication yes 
+          marker: "# {mark} PermitCanviaPasswordAuth block"
+
+- name: Deshabilitar Reinicio Servidores con Ctrl+Alt+Del
+  block:
+      - name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en Systemd
+        systemd:
+          name: ctrl-alt-del.target
+          masked: yes
+        when:
+          (os_vendor == 'amazon' and os_release == '2') or 
+          (os_vendor == 'sles' and os_release.split('.')[0] == '12') or
+          ( ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8 ) or
+          ( ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16 ) or
+          ( ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 )
+
+      - name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en Upstart
+        template:
+          src: templates/control-alt-delete.override
+          dest: /etc/init/control-alt-delete.override
+          mode: 0644
+        when:
+          (os_vendor == 'amazon' and os_release != '2') or 
+          ( ansible_os_family == "RedHat" and ansible_distribution_major_version|int == 6 )
+
+      - name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en System V
+        lineinfile:
+          path: /etc/inittab
+          regexp: '^ca::ctrlaltdel'
+          state: absent
+        register: ctrlaltdel
+        when:
+          ( ansible_os_family == "RedHat" and ansible_distribution_major_version|int == 5 ) or
+          (os_vendor == 'sles' and os_release.split('.')[0] == '11')
+
+      - name: Recargar inittab
+        shell: telinit q
+        when: ctrlaltdel is defined and ctrlaltdel.changed == True
+
+- name: Habilitar Secondary Logging
+  block:
+
+      - name: Crear directorio de historial de comandos
+        file:
+          path: /var/log/history
+          mode: 01777
+          state: directory
+
+      - name: Asegurarse que exista directorio de scripts
+        file:
+          path: /scripts
+          mode: 0755
+          state: directory
+          owner: root
+          group: root
+
+      - name: Copiar scripts de registro de historial de comandos
+        template:
+          src: "{{ item }}"
+          mode: 0755
+          dest: /scripts
+        with_items:
+          - files/history-log.sh
+          - files/compress-history-log.sh
+
+      - name: Configurar cron para comprimir logs de historial de comandos
+        template:
+          src: templates/compress-history-log.cron
+          dest: /etc/cron.d
+          mode: 0644
+
+      - name: Configurar registro de historial de comandos en bash de SUSE o Debian/Ubuntu
+        lineinfile:
+          path: /etc/bash.bashrc
+          state: present
+          regexp: '^\. /scripts/history-log.sh'
+          line: '. /scripts/history-log.sh'
+        when:
+          os_vendor == 'sles' or
+          ansible_os_family == "Debian"
+
+      - name: Configurar registro de historial de comandos en bash de RedHat/CentOS/Oracle
+        lineinfile:
+          path: /etc/bashrc
+          state: present
+          regexp: '^\. /scripts/history-log.sh'
+          line: '. /scripts/history-log.sh'
+        when:
+          ansible_os_family == "RedHat" or 
+          os_vendor == 'amazon'

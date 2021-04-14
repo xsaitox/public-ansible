@@ -1,0 +1,57 @@
+---
+images:
+  - os_sku: Ubuntu Server 18.04
+    os_type: Linux
+    short_name: ubuntu_server-1804
+    image_publisher: Canonical
+    image_offer: UbuntuServer
+    image_sku: 18.04-LTS
+
+  - os_sku: CentOS 7
+    os_type: Linux
+    short_name: centos-7
+    image_publisher: OpenLogic
+    image_offer: CentOS
+    image_sku: "7.7"
+
+  - os_sku: SLES 12
+    os_type: Linux
+    short_name: sles-12
+    image_publisher: SUSE
+    image_offer: SLES
+    image_sku: "12-SP4"
+
+  - os_sku: RHEL 7
+    os_type: Linux
+    short_name: rhel-7
+    image_publisher: RedHat
+    image_offer: RHEL
+    image_sku: "7.7"
+
+  - os_sku: RHEL 8
+    os_type: Linux
+    short_name: rhel-8
+    image_publisher: RedHat
+    image_offer: RHEL
+    image_sku: "8"
+
+  - os_sku: Windows Server 2019
+    os_type: Windows
+    short_name: windows-server-2019
+    image_publisher: MicrosoftWindowsServer
+    image_offer: WindowsServer
+    image_sku: 2019-Datacenter
+
+  - os_sku: Windows Server 2016
+    os_type: Windows
+    short_name: windows-server-2016
+    image_publisher: MicrosoftWindowsServer
+    image_offer: WindowsServer
+    image_sku: 2016-Datacenter
+
+  - os_sku: Windows Server 2012 R2
+    os_type: Windows
+    short_name: windows-server-2012R2
+    image_publisher: MicrosoftWindowsServer
+    image_offer: WindowsServer
+    image_sku: 2012-R2-Datacenter

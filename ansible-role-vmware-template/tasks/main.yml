@@ -1,0 +1,119 @@
+---
+- name: Verificar que esten definidas las variables indispensables
+  fail:
+    msg: No se ha definido una o mas de las variables indispensables':' os_name vmenv_name vm_cluster vm_folder vm_resourcepool vm_datastore vm_isodatastore vm_isofile vm_vmtoolsfile vm_network os_ipaddr os_netmask os_gateway os_dns os_ntpserver
+  when:
+    os_name is not defined or
+    vmenv_name is not defined or
+    vm_cluster is not defined or
+    vm_folder is not defined or
+    vm_resourcepool is not defined or
+    vm_datastore is not defined or
+    os_ipaddr is not defined or
+    os_netmask is not defined or
+    os_gateway is not defined or
+    os_dns is not defined or
+    os_ntpserver is not defined
+
+- name: Buscar credenciales de vCenter
+  set_fact:
+    vmware_host: "{{ lookup('env','VMWARE_HOST') }}"
+    vmware_user: "{{ lookup('env','VMWARE_USER') }}"
+    vmware_password: "{{ lookup('env','VMWARE_PASSWORD') }}"
+
+- name: Verificar que esten definidas las variables de entorno de VMware
+  fail:
+    msg: No se ha definido una o mas de las variables de entorno requeridas':' VMWARE_HOST VMWARE_USER VMWARE_PASSWORD
+  when:
+    vmware_host == "" or vmware_host is not defined or
+    vmware_user == "" or vmware_user is not defined or
+    vmware_password == "" or vmware_password is not defined
+
+- name: Filtrar entorno deseado
+  set_fact:
+    desired_os: "{{ os_data | selectattr('short_name','equalto', os_name) | first }}"
+    desired_env: "{{ vmware_data | selectattr('short_name','equalto', vmenv_name) | first }}"
+    os: "{{ 'windows' if os_name | regex_search('win', ignorecase=True) else 'linux' }}"
+
+- name: Formatear fecha y hora en variable
+  set_fact:
+    datetime: "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
+
+- name: Generar contraseña aleatoria
+  shell: date +%s | md5sum | awk '{ print $1 }' | cut -c 1-20 | sed -r -e "s/([a-z])([^a-z]*.?)/\U\1\L\2/gi"
+  register: random_pass
+
+- name: Definir la nueva clave de administrador
+  set_fact: 
+    os_adminpass: "{{ random_pass.stdout }}"
+
+- name: Generar string aleatorio
+  shell: date +%s | md5sum | awk '{ print $1 }'
+  register: random_name
+
+- name: Definir directorio de archivos de instalacion
+  set_fact:
+    tmpjob: "{{ random_name.stdout }}"
+
+- name: Crear directorios de trabajo temporales
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ tmpjob }}"
+    - "{{ tmpjob }}/group_vars"
+
+- name: Crear configuracion de Packer desde plantilla
+  template:
+    src: templates/packer-template.json.j2
+    dest: "{{ tmpjob }}/{{ packer_config }}"
+
+- name: Crear plantilla de credenciales de Packer
+  template:
+    src: templates/packer-vars.json.j2
+    dest: "{{ tmpjob }}/{{ packer_vars }}"
+
+- name: Crear inventario ansible
+  template:
+    src: templates/inventory.ini.j2
+    dest: "{{ tmpjob }}/inventory.ini"
+
+- name: Crear variables de ansible por grupos
+  template:
+    src: templates/{{ os }}-vars.j2
+    dest: "{{ tmpjob }}/group_vars/{{ os }}"
+
+- name: Copiar postinstall.yml
+  copy:
+    src: files/postinstall.yml
+    dest: "{{ tmpjob }}"
+
+- name: Crear enlace a directorio de roles
+  file:
+    src: ../roles
+    dest: "{{ tmpjob }}/roles"
+    state: link
+
+- name: Crear template de {{ desired_os.full_name }} con Packer
+  command: packer build -var-file={{ packer_vars }} {{ packer_config }}
+  args:
+    chdir: "{{ tmpjob }}"
+  register: packer_output
+  ignore_errors: yes
+
+- name: Mostrar salida STDOUT de la ejecucion de Packer
+  debug:
+    msg: "{{ packer_output.stdout_lines }}"
+  when: packer_output.rc == 0
+
+- name: Mostrar salida STDERR de la ejecucion de Packer
+  debug:
+    msg: "{{ packer_output.stderr_lines }}"
+  when: packer_output.rc != 0
+
+- name: Borrar archivos de instalacion generados
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ tmpjob }}"

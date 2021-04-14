@@ -1,0 +1,15 @@
+---
+- name: Desinstalar consul
+  when: deploy_action in ['uninstall','reinstall']
+  block:
+    - name: Invocar a las tareas de desinstalacion de consul
+      include_tasks: uninstallation.yml
+
+- name: Instalar consul
+  when: deploy_action in ['install','reinstall']
+  block:
+    - name: Invocar a las tareas de instalacion de consul
+      include_tasks: installation.yml
+
+    - name: Invocar a las tareas de configuracion de consul
+      include_tasks: configuration.yml

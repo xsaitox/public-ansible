@@ -1,0 +1,90 @@
+Director {
+  Name = srvbackup-dir
+  DIRport = 9101
+  QueryFile = "/etc/bacula/query.sql"
+  WorkingDirectory = /var/spool/bacula
+  PidDirectory = /var/run/bacula
+  Maximum Concurrent Jobs = 1
+  Password = "{{ bacula_dir_pass }}"
+  Messages = Standard
+}
+
+Catalog {
+  Name = MyCatalog
+  dbaddress = "{{ db_host }}"; dbname = "{{ bacula_db_name }}"; dbuser = "{{ bacula_db_user }}"; dbpassword = "{{ bacula_db_password }}"
+}
+
+FileSet {
+  Name = TestData
+  Include {
+    File = /tmp
+  }
+}
+
+Schedule {
+  Name = MonthlyCycle
+  Run = Full jan 1 at 00:00
+}
+
+Storage {
+  Name = StgFile1
+  Device = Drive-File1
+  Media Type = File1
+  Address = 127.0.0.1
+  SDPort = 9103
+  Password = "{{ bacula_sd_pass }}"
+}
+
+Messages {
+  Name = Standard
+  mailcommand = "/usr/sbin/bsmtp -h localhost -f \"\(Bacula\) \<%r\>\" -s \"Bacula: %t %e of %c %l\" %r"
+  operatorcommand = "/usr/sbin/bsmtp -h localhost -f \"\(Bacula\) \<%r\>\" -s \"Bacula: Intervention needed for %j\" %r"
+  mail = adminbacula@gmail.com = all, !skipped            
+  operator = operadorbacula@gmail.com = mount
+  console = all, !skipped, !saved
+  append = "/var/log/bacula/bacula.log" = all, !skipped
+  catalog = all
+}
+
+Pool {
+  Name = Total
+  Pool Type = Backup
+  Recycle = yes
+  AutoPrune = yes
+  Volume Retention = 365 days
+  Maximum Volume Bytes = 50G
+  Maximum Volumes = 100
+  Label Format = Total-
+}
+
+JobDefs {
+  Name = DefaultJob
+  Type = Backup
+  Level = Incremental
+  FileSet = TestData
+  Schedule = MonthlyCycle
+  Storage = StgFile1
+  Messages = Standard
+  Pool = Total
+  Priority = 10
+  Write Bootstrap = "/var/spool/bacula/%c.bsr"
+}
+
+Job {
+  Name = RestoreFiles
+  Type = Restore
+  JobDefs = DefaultJob
+  Client = srvbackup-fd
+  Where = /custom/path
+}
+
+Client {
+  Name = srvbackup-fd
+  Address = 127.0.0.1
+  FDPort = 9102
+  Catalog = MyCatalog
+  Password = "{{ bacula_fd_pass }}"
+  File Retention = 30 days
+  Job Retention = 6 months
+  AutoPrune = yes
+}

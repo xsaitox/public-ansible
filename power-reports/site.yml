@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  connection: local 
+  gather_facts: yes
+  vars:
+    reporte_power: ReporteCapacidadPowerCloud-{{ fecha }}.xlsx
+  tasks:
+    - name: Generar reporte de Cloud local Power
+      command: ./files/hmcScanner.sh {{ hmc_ip }} {{ os_adminuser }} -p {{ os_adminpass }} -stats -name {{ reporte_power }}
+      register: cmd_result
+
+    - name: Eliminar carpeta {{ hmc_ip }}
+      command: rm -rf {{ hmc_ip }}
+      register: cmd_result
+
+    - name: Enviar reporte por correo
+      mail:
+        host: "{{ smtp_server }}"
+        port: 25
+        from: "{{ mail_from }}"
+        to: "{{ mail_to }}"
+        cc: "{{ mail_copy | default(omit) }}"
+        subject: "{{ mail_subject }}"
+        body:  "{{ mail_body }}"
+        attach:
+          - "{{ reporte_power }}"
+
+    - name: Eliminar archivo .xlsx temporal
+      file:
+        path: "{{ reporte_power }}"
+        state: absent

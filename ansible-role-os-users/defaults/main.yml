@@ -1,0 +1,243 @@
+---
+generic_users:
+  - user: cnvauto
+    fullname: Canvia Automation User / System administrator
+    password: 4yt8zVMQMqB6asxGHdqjSkn2TURZJ8
+    expiredpass: False
+    cannotchangepass: True
+    passneverexpires: True
+    admin: True
+
+  - user: cnvadmin
+    fullname: Canvia Sysadmin / System administrator
+    password: CnV+lnx.01AD
+    expiredpass: False
+    cannotchangepass: True
+    passneverexpires: True
+    admin: True
+
+  - user: gmdadmin
+    fullname: Canvia Sysadmin / System administrator
+    password: CnV+lnx.01AD
+    expiredpass: False
+    cannotchangepass: True
+    passneverexpires: True
+    admin: True
+
+  - user: cnvbasis
+    fullname: Canvia SAP Basis / Area de SAP
+    password: p4l0Alt0bs
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: False
+
+  - user: cnvbkp
+    fullname: Canvia Backups / Area de Backups
+    password: p4l0Alt0bp
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: False
+
+  - user: cnvcecom
+    fullname: Canvia CECOM / Area de CECOM
+    password: '#c3c0muser2019#'
+    expiredpass: False
+    cannotchangepass: True
+    passneverexpires: True
+    admin: False
+
+  - user: cnvdba
+    fullname: Canvia DBA / Area de DBA
+    password: p4l0Alt0da
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: False
+
+  - user: cnvmnt
+    fullname: Canvia Monitoreo / Area de Monitoreo
+    password: p4l0Alt0mt
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: False
+
+  - user: cnvope
+    fullname: Canvia COT / Area de Operaciones (COT)
+    password: p4l0Alt0oe
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: False
+
+linux_users:
+  - user: cnvareng
+    fullname: Canvia Sysadmin / Angel Rengifo Cancino
+    password: CnV./abc66ar
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvcvega
+    fullname: Canvia Sysadmin / Cesar Vegas Timana
+    password: CnV./abc66cv
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnveflor
+    fullname: Canvia Sysadmin / Enrique Flores Bautista
+    password: CnV./abc66ef
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvhmele
+    fullname: Canvia Sysadmin / Henry Melendez Yaupari
+    password: CnV./abc66hm
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvjrodr
+    fullname: Canvia Sysadmin / Juan  Rodriguez Vega
+    password: CnV./abc66jr
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvjtorr
+    fullname: Canvia Sysadmin / Jose Torres Escobar
+    password: CnV./abc66jt
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvlcusi
+    fullname: Canvia Sysadmin / Luis Cusicuna Luna
+    password: CnV./abc66lc
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvoeche
+    fullname: Canvia Sysadmin / Omar Echegaray Avendano
+    password: CnV./abc66oe
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvrgara
+    fullname: Canvia Sysadmin / Ruben Garay Estrada
+    password: CnV./abc66rg
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvrsanc
+    fullname: Canvia Sysadmin / Ronald Sanchez Mendoza
+    password: CnV./abc66rs
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvdloay
+    fullname: Canvia Sysadmin / David Loayza Cusi
+    password: CnV./abc66dl
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+  - user: cnvarome
+    fullname: Canvia Sysadmin / Anderson Romero Chavez
+    password: CnV./abc66ar
+    expiredpass: True
+    cannotchangepass: False
+    passneverexpires: False
+    admin: True
+
+nousers:
+  - user: automation
+    fullname: automation
+
+  - user: cnvrcaut
+    fullname: Canvia Sysadmin / Rafael Cautin Escobar
+
+  - user: cnvrcast
+    fullname: Canvia Sysadmin / Rodolfo Castelo Mendez
+
+  - user: cnvaaldo
+    fullname: Anderson Aldonate
+
+  - user: cnvgrios
+    fullname: Gabriel Rios
+
+  - user: cnvbleon
+    fullname: Bryan Leon
+
+  - user: cnvoorti
+    fullname: Oscar Ortiz
+
+  - user: cnvmpint
+    fullname: Canvia Sysadmin / Michele Pinto Yataco
+
+  - user: cnvlsali
+    fullname: Canvia Sysadmin / Luis Salinas Arevalo
+
+  - user: cnvltapi
+    fullname: Canvia Sysadmin / Luis Tapia Escalante
+
+  - user: cnvareym
+    fullname: Canvia Sysadmin / Adrian Rey Mayorga
+
+  - user: cnvcalva
+    fullname: Canvia Sysadmin / Catharine Alvarez Calisaya
+
+  - user: cnvcccah
+    fullname: Canvia Sysadmin / Edinson Ccahuana Jayme
+
+  - user: cnvclecc
+    fullname: Canvia Sysadmin / Cesar Lecca Hernandez
+
+  - user: cnvdsand
+    fullname: Canvia Sysadmin / Danilo Sandoval Huaman
+
+  - user: cnvecamp
+    fullname: Canvia Sysadmin / Emmer Campos Tucto
+
+  - user: cnvftell
+    fullname: Canvia Sysadmin / Fernando Tello Pacheco
+
+  - user: cnvfzela
+    fullname: Canvia Sysadmin / Frank Zelada Santiago
+
+  - user: cnvhhigi
+    fullname: Canvia Sysadmin / Humberto Higinio Solis
+
+  - user: cnvjhuam
+    fullname: Canvia Sysadmin / Jose Huamani Lopez
+
+  - user: cnvjorih
+    fullname: Canvia Sysadmin / Jhon Orihuela Meza
+
+  - user: cnvjroqu
+    fullname: Canvia Sysadmin / Johanz Roque Loyola
+
+  - user: cnvjurqu
+    fullname: Canvia Sysadmin / Jose Urquiza Ordinola
+
+  - user: cnvkzena
+    fullname: Canvia Sysadmin / Karina Zena Chiroque

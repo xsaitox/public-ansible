@@ -1,0 +1,130 @@
+---
+- name: Instalar requisitos para configuracion de Bacula
+  yum:
+    state: present
+    name: "{{ packages_for_config }}"
+
+- name: Deshabilitar SELinux
+  selinux:
+    state: disabled
+
+- name: Crear grupo de Bacula
+  group:
+    name: tape
+    system: yes
+    state: present
+
+- name: Crear usuario de Bacula
+  user:
+    name: bacula
+    groups: tape
+    system: yes
+    shell: /sbin/nologin
+    home: /var/spool/bacula
+
+- name: Ajuste de permisos de ficheros de configuracion de Bacula
+  file:
+    path: "{{ item.path }}"
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
+  with_items:
+    - { path: /etc/bacula/bacula-dir.conf, owner: bacula, group: bacula }
+    - { path: /etc/bacula/bacula-sd.conf, owner: bacula, group: tape }
+    - { path: /etc/bacula/bconsole.conf, group: tape }
+
+- name: Ajuste de permisos de rutas de Bacula
+  file:
+    path: "{{ item }}"
+    owner: bacula
+    group: bacula
+    recurse: yes
+  with_items:
+    - /var/log/bacula
+    - /var/spool/bacula
+
+- name: Configurar tmpfiles para Bacula
+  template:
+    src: templates/bacula-tmpfiles.conf
+    dest: /etc/tmpfiles.d/bacula.conf
+  register: bacula_tmpfiles
+
+- name: Aplicar cambios a configuracion tmpfiles
+  when: bacula_tmpfiles.changed
+  command: systemd-tmpfiles --create
+
+- name: Configuracion de Bacula Client
+  when:
+    - bacula_role is defined
+    - bacula_role == 'client'
+  block:
+    - name: Configurar servicio bacula-fd
+      template:
+        src: templates/bacula-fd.conf.j2
+        dest: /etc/bacula/bacula-fd.conf
+      register: bacula_fd_conf
+
+    - name: Iniciar servicios bacula-fd
+      service:
+        name: bacula-fd
+        state: "{{ 'started' if not bacula_fd_conf.changed else 'restarted' }}"
+        enabled: yes
+
+- name: Configuracion de Bacula Storage
+  when:
+    - bacula_role is defined
+    - bacula_role == 'storage'
+  block:
+    - name: Crear directorio de Storage por defecto
+      file:
+        path: "{{ bacula_sd_device }}"
+        state: directory
+        owner: bacula
+        group: tape
+
+    - name: Configurar servicio bacula-sd
+      template:
+        src: templates/bacula-sd.conf.j2
+        dest: /etc/bacula/bacula-sd.conf
+      register: bacula_sd_conf
+
+    - name: Iniciar servicios bacula-sd
+      service:
+        name: bacula-sd
+        state: "{{ 'started' if not bacula_sd_conf.changed else 'restarted' }}"
+        enabled: yes
+
+- name: Configuracion de Bacula Director
+  when:
+    - db_host is defined
+    - db_user is defined
+    - db_password is defined
+    - bacula_role is defined
+    - bacula_role == 'director'
+  block:
+    - name: Obtener clave de usuario de BD de Bacula desde fichero
+      shell: grep ^password /root/.my.cnf | cut -d = -f 2 | head -1
+      failed_when: 1 == 2
+      register: bdpass_from_file
+
+    - name: Registrar en variable la clave de usuario de BD de Bacula
+      when: bdpass_from_file.changed
+      set_fact:
+        bacula_db_password: "{{ bdpass_from_file.stdout }}"
+
+    - name: Configurar servicio bacula-dir
+      when: bacula_db_password is defined
+      template:
+        src: templates/bacula-dir.conf.j2
+        dest: /etc/bacula/bacula-dir.conf
+      register: bacula_dir_conf
+
+    - name: Iniciar servicios bacula-dir
+      service:
+        name: bacula-dir
+        state: "{{ 'started' if not bacula_dir_conf.changed else 'restarted' }}"
+        enabled: yes
+
+- name: Configurar bconsole
+  template:
+    src: templates/bconsole.conf.j2
+    dest: /etc/bacula/bconsole.conf

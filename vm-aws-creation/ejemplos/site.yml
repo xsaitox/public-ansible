@@ -1,0 +1,46 @@
+---
+- name: Creacion de VM
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Buscar credenciales de vCenter
+      set_fact:
+        vmware_host: "{{ lookup('env','VMWARE_HOST') }}"
+        vmware_user: "{{ lookup('env','VMWARE_USER') }}"
+        vmware_password: "{{ lookup('env','VMWARE_PASSWORD') }}"
+
+    - name: Verificar que esten definidas las variables de entorno de VMware
+      fail:
+        msg: No se ha definido una o mas de las variables de entorno requeridas':' VMWARE_HOST, VMWARE_USER, VMWARE_PASSWORD
+      when:
+        vmware_host == "" or vmware_host is not defined or
+        vmware_user == "" or vmware_user is not defined or
+        vmware_password == "" or vmware_password is not defined
+
+    - name: Configuracion de pre-requisitos
+      include_tasks: tasks/prerequisites.yml
+
+    - name: Crear VM
+      include_tasks: tasks/vm-creation.yml
+
+    - name: Agregar el host al inventario Ansible en caliente
+      add_host:
+        name: "{{ os_ipaddr }}"
+        group: "{{ tmpjob }}"
+
+- name: Configuracion de VM
+  hosts: "{{ hostvars['localhost'].tmpjob }}"
+  gather_facts: no
+  tasks:
+    - name: Tareas post de VM
+      include_tasks: tasks/post-vm.yml
+
+- name: Tareas finales
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Tareas post locales
+      include_tasks: tasks/post-local.yml
+

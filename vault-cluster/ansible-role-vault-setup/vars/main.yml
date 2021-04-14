@@ -1,0 +1,10 @@
+---
+# vars file for ansible-role-vault-setup
+yum_dependencies:
+  - jq
+  - unzip
+apt_dependencies:
+  - jq
+  - unzip
+  - python3-openssl
+  - python3-jinja2

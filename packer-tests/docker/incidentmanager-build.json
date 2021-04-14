@@ -1,0 +1,72 @@
+{
+    "variables": {
+        "aws_access_key"    : "{{ env `AWS_ACCESS_KEY_ID` }}",
+        "aws_secret_key"    : "{{ env `AWS_SECRET_ACCESS_KEY` }}",
+        "ecr_url"           : "104314781943.dkr.ecr.us-east-2.amazonaws.com",
+        "login_server"      : "https://{{ user `ecr_url` }}"
+    },
+    "builders": [
+        {
+            "type"          : "docker",
+            "image"         : "{{ user `ecr_url` }}/base/pyodbc:1.0",
+            "commit"        : "true",
+            "ecr_login"     : "true",
+            "login_server"  : "{{ user `login_server` }}",
+            "aws_access_key": "{{ user `aws_access_key` }}",
+            "aws_secret_key": "{{ user `aws_secret_key` }}",
+            "exec_user"     : "root",
+            "changes"       : [
+                "ENV SUMMARY=\"Imagen GENESYS - Modulo Incident Manager\"",
+                "ENV DESCRIPTION=\"Aplicación python3-Flask con SQl server.\"",
+
+                "LABEL summary=\"$SUMMARY\"",
+                "LABEL description=\"$DESCRIPTION\"",
+                "LABEL name=\"IncidentManager\"",
+                "LABEL version=\"1.0\"",
+                "LABEL maintainer=\"Cloud Innovation AnthonyAlcalaB<aalcalab@canvia.com>\"",
+
+                "ENTRYPOINT [\"\"]",
+                "CMD [\"python3\",\"app.py\"]",
+                "EXPOSE 5000",
+                "USER appuser"
+            ]
+        }
+    ],
+    "provisioners": [
+        {
+            "type"  : "shell",
+            "inline": [
+                "pip3 install --upgrade pip",
+                "pip3 install Flask",
+                "useradd -r -u 1002 appuser"
+            ]
+        },
+        {
+            "type"          : "file",
+            "source"        : "incidentmanager/",
+            "destination"   : "/tmp"
+        },
+        {
+            "type"  : "shell",
+            "inline": [
+                "mv /tmp/* /"
+            ]
+        }
+    ],
+    "post-processors": [
+        [
+            {
+                "type"          : "docker-tag",
+                "repository"    : "{{ user `ecr_url` }}/genesys/incidentmanager",
+                "tag"           : "1.0"
+            },
+            {
+                "type"          : "docker-push",
+                "ecr_login"     : "true",
+                "aws_access_key": "{{ user `aws_access_key` }}",
+                "aws_secret_key": "{{ user `aws_secret_key` }}",
+                "login_server"  : "{{ user `login_server` }}"
+            }
+        ]
+    ]
+}

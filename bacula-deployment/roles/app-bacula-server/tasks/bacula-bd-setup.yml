@@ -1,0 +1,72 @@
+---
+- name: Instalar paquetes requeridos para catalogo de Bacula
+  yum:
+    name: "{{ packages_for_catalog }}"
+    state: present
+
+- name: Configuracion de la BD para Bacula Director
+  when:
+    - db_host is defined
+    - db_user is defined
+    - db_password is defined
+    - bacula_role is defined
+    - bacula_role == 'director'
+  block:
+    - name: Crear la BD de Bacula
+      mysql_db:
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+        name: "{{ bacula_db_name }}"
+        state: present
+
+    - name: Verificar existencia de la BD de Bacula
+      shell: mysql -h {{ db_host }} -u {{ db_user }} --password={{ db_password }} -e "SHOW DATABASES" | grep -wq "{{ bacula_db_name }}"
+      failed_when: 1 == 2
+      register: db_info
+
+    - name: Verificar existencia de tablas de la BD de Bacula
+      when: db_info.rc == 0
+      shell: mysql -h {{ db_host }} -u {{ db_user }} --password={{ db_password }} {{ bacula_db_name }} -e "SHOW TABLES" | wc -l 
+      register: tables_info
+
+    - name: Crear las tablas de la BD de Bacula
+      when: tables_info.stdout|int <= 10
+      command: /usr/libexec/bacula/make_mysql_tables -h {{ db_host }} -u {{ db_user }} --password={{ db_password }}
+      environment:
+        db_name: "{{ bacula_db_name }}"
+
+    - name: Verificar existencia de permisos en la BD de Bacula
+      when: db_info.rc == 0
+      shell: mysql -h {{ db_host }} -u {{ db_user }} --password={{ db_password }} -e "SHOW GRANTS FOR '{{ bacula_db_user }}'@localhost" | grep "ALL.*{{ bacula_db_name }}"
+      failed_when: 1 == 2
+      register: grants_info
+
+    - name: Generar clave aleatoria para usuario de BD de Bacula
+      when: grants_info.rc != 0
+      command: openssl rand -base64 30
+      args:
+        creates: /root/.my.cnf
+      register: db_random_pass
+
+    - name: Registrar clave aleatoria generada
+      when: db_random_pass.changed
+      set_fact:
+        bacula_db_password: "{{ db_random_pass.stdout }}"
+
+    - name: Crear usuario y privilegios para la BD de Bacula
+      mysql_user:
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+        name: "{{ bacula_db_user }}"
+        password: "{{ bacula_db_password }}"
+        priv: "{{ bacula_db_name }}.*:ALL"
+        host: "%"
+
+    - name: Configurar plantilla de configuracion de cliente de la BD Bacula
+      when: db_random_pass.changed
+      template:
+        src: templates/my.cnf
+        dest: /root/.my.cnf
+

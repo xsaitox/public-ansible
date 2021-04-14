@@ -1,0 +1,72 @@
+---
+- hosts: localhost
+  gather_facts: yes
+  tasks:
+    - name: Configurar prerequisitos
+      include_tasks: tasks/prerequisite.yml
+
+    - name: Crear VM
+      include_tasks: tasks/createVM.yml
+
+    - name: Linux
+      block:
+        - name: Agregar IP de Linux
+          add_host:
+            name: "{{ dynamic_public }}"
+            groups: aws
+            ansible_user: "ec2-user"
+            ansible_ssh_private_key_file: "{{ var_job }}/key.pem"
+            ansible_become: true
+            ansible_connection: ssh
+            admin_password: "{{ admin_password }}"
+            so_type: "{{ so_type }}"
+
+        - name: Asegurar llave
+          file:
+            path: "{{ var_job }}/key.pem"
+            mode: '400'
+
+        - name: Esperar el puerto 22 para la conexion por SSH
+          wait_for:
+            host: "{{ dynamic_public }}"
+            port: 22
+            delay: 10
+            state: started
+      when: so_type == "Linux"
+
+    - name: Windows
+      block:
+        - name: Esperar el puerto 5986 para la conexion por Winrm
+          wait_for:
+            host: "{{ dynamic_public }}"
+            port: 5986
+            delay: 10
+            state: started
+
+        - name: Agregar IP de Windows
+          add_host:
+            name: "{{ dynamic_public }}"
+            groups: aws
+            ansible_user: "administrator"
+            ansible_password: "P4k42019.."
+            ansible_connection: winrm
+            ansible_winrm_transport: ntlm
+            ansible_winrm_connection_timeout: 2000
+            ansible_winrm_server_cert_validation: ignore
+            ansible_port: 5986
+
+            so_type: "{{ so_type }}"
+            admin_password: "{{ admin_password }}"
+      when: so_type == "Windows"
+
+- hosts: aws
+  gather_facts: yes
+  tasks:
+    - name: Configurar VM
+      include_tasks: tasks/VM.yml
+
+- hosts: localhost
+  gather_facts: yes
+  tasks:
+    - name: Ejecutar tareas locales
+      include_tasks: tasks/postVM.yml

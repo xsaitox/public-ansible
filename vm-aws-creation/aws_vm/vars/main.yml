@@ -1,0 +1,112 @@
+---
+os_timezone:      45 
+#
+vm_disktype:      lsilogicsas
+vm_paging:        "{{ (vm_memory*1.5) | int }}"
+vm_state:         poweredon
+smtp_server:      10.100.13.31
+mail_from:        mdelrosario@canvia.com
+mail_to:          rsaavedra@canvia.com
+#mail_from:        Canvia Automation <automation@canvia.com> #correo por el cual se envía la clave
+mail_subject:     Credenciales del servidor "{{ tmpjob }}/{{ adminpass_file }}" 
+mail_body:        En el archivo adjunto está las credenciales del servidor creado
+adminpass_file:     credenciales.txt
+#adminpass_zipfile:  credenciales.zip
+#
+#network_type: e1000e
+network_type: vpc-0375462acb82279df|VPC-Genesys
+subnet_id: subnet-0f16c38f71b3f0fb7
+disk_type: lsilogic-sas 
+disk_size: 51200 
+memory: 8192 
+cpus: 2 
+boot_wait: 2m
+
+
+os_data:
+#  - short_name: ubuntu-18.04
+#    default_user: cnvadmin
+#    ami_pattern: img_ubuntu-18.04_????????
+
+  - friendly_name: Amazon Linux 2
+    short_name: amzn2
+    default_user: cnvadmin
+    ami_pattern: amzn2-ami-hvm-2.0.????????-x86_64-gp2
+    root_device_type: ebs
+    
+  - friendly_name: Amazon Linux
+    short_name: amzn
+    default_user: cnvadmin
+    ami_pattern: amzn-ami-hvm-????.??.*.????????-x86_64-gp2
+    root_device_type: ebs
+
+  - friendly_name: Ubuntu Server Bionic 18.04 x86_64
+    short_name: ubuntu_server-1804
+    default_user: cnvadmin
+    ami_pattern: ubuntu/images/*/ubuntu-bionic-18.04-amd64-server-*
+    root_device_type: ebs
+
+  - friendly_name: Ubuntu Server Bionic 18.04 x86_64
+    short_name: ubuntu_server-1804
+    default_user: cnvadmin
+    ami_pattern: ubuntu/images/*/ubuntu-bionic-18.04-amd64-server-*
+    root_device_type: ebs
+
+  - friendly_name: CentOS 7 x86_64
+    short_name: centos-7
+    default_user: cnvadmin
+    root_device_type: ebs
+
+  - friendly_name: SLES 12 SP3 x86_64
+    short_name: sles-12sp3
+    default_user: cnvadmin
+    ami_pattern: suse-sles-12-sp3-v20??????-hvm-ssd-x86_64
+    root_device_type: ebs
+
+  - friendly_name: SLES 12 SP4 x86_64
+    short_name: sles-12sp4
+    default_user: cnvadmin
+    ami_pattern: suse-sles-12-sp4-v20??????-hvm-ssd-x86_64
+    root_device_type: ebs
+
+  - friendly_name: RHEL 8.0 x86_64
+    short_name: rhel-8.0
+    default_user: cnvadmin
+    ami_pattern: RHEL-8.0.0_HVM-20??????-x86_64-1-Hourly2-GP2
+    root_device_type: ebs
+
+  - friendly_name: RHEL 7.6 x86_64
+    short_name: rhel-7.6
+    default_user: cnvadmin
+    ami_pattern: RHEL-7.6_HVM-20??????-x86_64-0-Hourly2-GP2
+    root_device_type: ebs
+
+  - friendly_name: Windows Server 2008 R2
+    short_name: windows-server-2008R2
+    default_user: cnvadmin
+    ami_pattern: Windows_Server-2008-R2_SP1-English-64Bit-Base-*
+    root_device_type: ebs
+
+  - friendly_name: Windows Server 2012 R2
+    short_name: windows-server-2012R2
+    default_user: cnvadmin
+    ami_pattern: Windows_Server-2012-R2_RTM-English-64Bit-Base-*
+    root_device_type: ebs
+
+  - friendly_name: Windows Server 2016
+    short_name: windows-server-2016
+    default_user: cnvadmin
+    ami_pattern: Windows_Server-2016-English-Full-Base-*
+    root_device_type: ebs
+
+  - friendly_name: Windows Server 2019
+    short_name: windows-server-2019
+    default_user: cnvadmin
+    ami_pattern: Windows_Server-2019-English-Full-Base-*
+    root_device_type: ebs
+
+vmware_data: 
+  - short_name: canvia-dev6.0 
+    host: 172.23.1.17 
+    dc: COT-DEV01 
+    datastore: c1_3p84_ssd_cloud_test_id010

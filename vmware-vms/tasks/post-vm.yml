@@ -1,0 +1,120 @@
+---
+- name: Extender disco de SO
+  when: os_disk_size > hostvars['localhost'].os_disk|int
+  command: ./files/extend-os-disk.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} {{ vm_name }} {{ os_disk_size }}
+  delegate_to: localhost
+
+- name: Remover huella de host SSH
+  when: hostvars['localhost'].os == 'linux'
+  command: ssh-keygen -R {{ os_ipaddr }}
+  delegate_to: localhost
+
+- name: Esperar a establecer la conexion
+  wait_for_connection:
+    timeout: 3600
+    sleep: 5
+
+- name: Recopilar facts
+  setup:
+
+- name: Importar rol de variables base
+  include_role:
+    name: canvia.os-basevars
+
+- name: Importar rol de instalacion de antivirus
+  include_role:
+    name: canvia.os-antivirus
+
+- name: Configuraciones personalizadas de sistema
+  include_role:
+    name: canvia.os-customization
+
+- name: Cambio de clave de administrator en Windows
+  when: os == 'windows'
+  block:
+    - name: Windows - Crear usuario temporal 
+      win_user:
+        name: automation
+        password: "{{ hostvars['localhost'].os_newadminpass }}"
+        groups:
+          - Administrators
+
+    - name: Cambiarse al usuario temporal
+      set_fact:
+        ansible_user: automation
+        ansible_password: "{{ hostvars['localhost'].os_newadminpass }}"
+
+    - name: Windows - Cambiar clave de administrator
+      win_user:
+        name: Administrator
+        password: "{{ hostvars['localhost'].os_newadminpass }}"
+
+    - name: Cambiarse al usuario administrator de nuevo
+      set_fact:
+        ansible_user: administrator
+        ansible_password: "{{ hostvars['localhost'].os_newadminpass }}"
+
+    - name: Windows - Eliminar usuario temporal
+      win_user:
+        name: automation
+        state: absent
+
+- name: Cambio de clave de administrator en Windows
+  when: os == 'linux'
+  block:
+    - name: Linux - Crear usuario temporal 
+      user:
+        name: automation
+        password: "{{ hostvars['localhost'].os_newadminpass | password_hash('sha512') }}"
+    
+    - name: Ajuste de permisos a directorio de usuario temporal
+      file:
+        path: /home/automation
+        owner: automation
+        group: automation
+        recurse: yes
+    
+    - name: Brindar privilegios de root a usuario temporal
+      copy:
+        dest: /etc/sudoers.d/automation
+        content: "automation ALL=(ALL) NOPASSWD: ALL"
+        validate: /usr/sbin/visudo -cf %s
+
+    - name: Cambiarse al usuario temporal
+      set_fact:
+        ansible_user: automation
+        ansible_password: "{{ hostvars['localhost'].os_newadminpass }}"
+
+    - name: Linux - Cambiar clave de root
+      become: yes
+      user:
+        name: root
+        password: "{{ hostvars['localhost'].os_newadminpass | password_hash('sha512') }}"
+
+    - name: Cambiarse al usuario root de nuevo
+      set_fact:
+        ansible_user: root
+        ansible_password: "{{ hostvars['localhost'].os_newadminpass }}"
+        
+    - name: Linux - Eliminar usuario temporal
+      user:
+        name: automation
+        state: absent
+        force: yes
+
+    - name: Eliminacion de directorio de usuario temporal
+      file:
+        path: /home/automation
+        state: absent
+
+    - name: Borrar configuracion de sudo para usuario temporal
+      file:
+        path: /etc/sudoers.d/automation
+        state: absent
+
+- name: Reiniciar SSH dentro de 5 minutos
+  when: os == 'linux'
+  at:
+    command: "{{ 'systemctl restart sshd\n' if systemd_capable else 'service sshd restart\n' }}"
+    count: 5
+    units: minutes

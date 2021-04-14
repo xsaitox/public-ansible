@@ -1,0 +1,41 @@
+---
+packer_config: vmimage.json
+packer_vars: vars.json
+netconfig_script: netconfig.cmd
+os_data:
+  - short_name: windows-2012r2-std-en
+    friendly_name: Windows 2012R2 Standard (English)
+    product_key: D2N9P-3P6X9-2R39C-7RTCD-MDVJX
+    full_name: Windows Server 2012 R2 SERVERSTANDARD
+    os_type: windows8Server64Guest
+    src_answer_file: templates/Autounattend2012.xml.j2
+    dst_answer_file: Autounattend.xml
+    admin_user: administrator
+    network_type: e1000e
+    winrm_script: files/ConfigureRemotingForAnsible.ps1
+    netconfig_script: templates/netconfig.cmd.j2
+    vmtools_script: files/vmtools.cmd
+    os_hostname: win2k12r2
+    disk_type: lsilogic-sas
+    disk_size: 51200
+    memory: 8192
+    cpus: 2
+    boot_wait: 2m
+  - short_name: centos7
+    friendly_name: CentOS 7
+    full_name: CentOS 7 (x86_64)
+    os_type: rhel7_64Guest
+    src_answer_file: ks-rhel7.cfg.j2
+    dst_answer_file: ks.cfg
+    admin_user: root
+    network_type: vmxnet3
+    os_hostname: centos7
+    disk_type: lsilogic-sas
+    disk_size: 51200
+    memory: 8192
+    cpus: 2
+    boot_wait: 2m
+  
+vmware_data:
+  - short_name: vcenter-6.0-dev
+    dc: COT-DEV01

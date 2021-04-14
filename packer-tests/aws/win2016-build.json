@@ -1,0 +1,58 @@
+{
+    "variables": {
+        "aws_access_key": "{{ env `AWS_ACCESS_KEY_ID` }}",
+        "aws_secret_key": "{{ env `AWS_SECRET_ACCESS_KEY` }}",
+        "region": "us-east-1"
+    },
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "access_key": "{{ user `aws_access_key` }}",
+            "secret_key": "{{ user `aws_secret_key` }}",
+            "region": "{{ user `region` }}",
+            "source_ami": "ami-02daaf23b3890d162",
+            "ami_name": "win2016-{{ isotime | clean_resource_name }}",
+            "instance_type": "t3a.medium",
+            "communicator": "winrm",
+            "winrm_username": "administrator",
+            "winrm_use_ssl": "true",
+            "winrm_insecure": "true",
+            "user_data_file": "ConfigureRemotingForAnsible.ps1",
+            "subnet_id": "subnet-0f16c38f71b3f0fb7",
+            "security_group_ids": [
+                "sg-0c26bdfcfedf2a647"
+            ],
+            "tags": {
+                "Name": "win2016-{{ isotime | clean_resource_name }}"
+            }
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "powershell",
+            "inline": [
+                "Invoke-RestMethod -Method GET -Uri http://169.254.169.254/latest/meta-data/public-ipv4 | Out-File C:\\Windows\\Temp\\host -encoding ascii"
+            ]
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "C:\\Windows\\Temp\\host",
+            "destination": "host"
+        },
+        {
+            "type": "shell-local",
+            "inline": [
+                "rm -rf group_vars",
+                "mkdir -p group_vars",
+                "echo '[windows]' > inventory.ini",
+                "cat host >> inventory.ini",
+                "echo 'ansible_connection: winrm' >> group_vars/windows",
+                "echo 'ansible_winrm_server_cert_validation: ignore' >> group_vars/windows",
+                "echo 'ansible_user: administrator' >> group_vars/windows",
+                "echo 'ansible_password: {{ .WinRMPassword }}' >> group_vars/windows",
+                "ansible-playbook -i inventory.ini test.yml"
+            ]
+        }
+    ]
+}

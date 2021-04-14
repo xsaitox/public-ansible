@@ -1,0 +1,26 @@
+---
+- name: Capturar estado de inicializacion de Vault
+  shell: vault status -format json | jq -r '.initialized'
+  register: vault_init_state
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Inicializar Vault
+  when: vault_init_state.stdout == "false"
+  register: vault_run_init
+  command: vault operator init -key-shares={{ vault_key_shares }} -key-threshold={{ vault_key_threshold }}
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Obtener token de inicializacion
+  when: vault_run_init.changed
+  set_fact:
+    vault_token: "{{ vault_run_init.stdout | regex_search('Token.*$', multiline=True, ignorecase=True) | regex_search('\\s.*$', multiline=False) | regex_replace('\\s','') }}"
+
+- name: Guardar informacion de inicializacion
+  when: vault_run_init.changed
+  set_fact:
+    vault_init_info: "{{ vault_run_init.stdout }}"
+

@@ -1,0 +1,4 @@
+.tmp/
+vars.yml
+test.yml
+roles/canvia*

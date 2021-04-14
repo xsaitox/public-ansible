@@ -1,0 +1,19 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Verificar que exista las variables requeridas
+      assert:
+        that:
+          - vmware_user is defined
+          - vmware_host is defined
+          - vmware_password is defined
+          - vsphere_datacenter is defined
+        fail_msg: No se ha definido una o mas variables requeridas{{ ':' }} vmware_host, vmware_user, vmware_password
+        success_msg: Validacion de variables exitosa
+
+    - name: Obtener reporte de vCenter {{ vmware_host }} en {{ vsphere_datacenter }}
+      shell: ./vm-report.ps1 '{{ vmware_host }}' '{{ vmware_user }}' '{{ vmware_password }}' 2>&1 >> {{ vsphere_datacenter }}.vce.csv
+      args:
+        chdir: files

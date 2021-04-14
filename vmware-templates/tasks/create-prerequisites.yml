@@ -1,0 +1,66 @@
+---
+- name: Validacion de parametros de vCenter
+  assert:
+    that:
+        - linux_cluster is defined
+        - windows_cluster is defined
+        - template_folder is defined
+        - vm_datastore is defined
+        - vm_folder is defined
+        - vm_resourcepool is defined
+        - vmware_host is defined
+        - vmware_user is defined
+        - vmware_password is defined
+        - vsphere_datacenter is defined
+    fail_msg: No se ha definido parametros de vCenter asociado a esta ejecucion
+    success_msg: Validacion exitosa de variables necesarias
+
+- name: Validacion de variables necesarias como parametros
+  assert:
+    that:
+        - os_ipaddr is defined
+        - os_ipaddr != ""
+        - os_adminpass is defined
+        - os_adminpass != ""
+        - vm_name is defined
+        - vm_name != ""
+    fail_msg: No se ha definido una o mas de las variables requeridas':' os_ipaddr, os_adminpass, vm_name
+    success_msg: Validacion exitosa de variables necesarias
+
+- name: Generar string aleatorio
+  shell: date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' '0lzeAsgtBa' | cut -c 1-12
+  register: random_name
+
+- name: Definir nombre de job aleatorio
+  set_fact:
+    tmpjob: "{{ random_name.stdout }}"
+
+- name: Crear directorios temporales
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - group_vars
+    - "{{ tmpjob }}"
+
+- name: Definir familia de SO
+  set_fact:
+    os: "{{ 'windows' if vm_name | regex_search('win', ignorecase=True) else 'linux' }}"
+
+- name: Crear archivo de variables para el host
+  template:
+    src: templates/groupvars.j2
+    dest: "group_vars/{{ tmpjob }}"
+
+- name: Agregar el host al inventario
+  add_host:
+    name: "{{ os_ipaddr }}"
+    group: "{{ tmpjob }}"
+
+- name: Configurar huellas SSH de host
+  when: os == 'linux'
+  shell: |
+    ssh-keygen -R {{ os_ipaddr }}
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh
+    ssh-keyscan -H {{ os_ipaddr }} >> ~/.ssh/known_hosts

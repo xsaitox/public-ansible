@@ -1,0 +1,8 @@
+---
+- name: Configuracion de linea  base de Windows
+  include_tasks: windows-baseline.yml
+  when: ansible_system == 'Win32NT'
+
+- name: Configuracion de linea  base de Linux
+  include_tasks: linux-baseline.yml
+  when: ansible_system == 'Linux'

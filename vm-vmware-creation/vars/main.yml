@@ -1,0 +1,37 @@
+---
+os_timezone:      45
+vm_disktype:      lsilogicsas
+vm_paging:        "{{ (vm_memory*1.5) | int }}"
+vm_state:         poweredon
+smtp_server:      10.100.13.31
+mail_from:        Canvia Automation <automation@canvia.com> #correo por el cual se envía la clave
+mail_subject:     Credenciales del servidor {{ vm_name }} ({{ os_hostname }})
+mail_body:        En el archivo adjunto está las credenciales del servidor creado
+adminpass_file:     credenciales.txt
+adminpass_zipfile:  credenciales.zip
+
+os_data:
+  - short_name: windows-2012r2-std-en
+    friendly_name: Windows 2012R2 Standard (English)
+    product_key: D2N9P-3P6X9-2R39C-7RTCD-MDVJX
+    full_name: Windows Server 2012 R2 SERVERSTANDARD
+    os_type: windows8Server64Guest
+    src_answer_file: templates/Autounattend2012.xml.j2
+    dst_answer_file: Autounattend.xml
+    admin_user: administrator
+    network_type: e1000e
+    winrm_script: files/ConfigureRemotingForAnsible.ps1
+    netconfig_script: templates/netconfig.cmd.j2
+    vmtools_script: files/vmtools.cmd
+    os_hostname: win2k12r2
+    disk_type: lsilogic-sas
+    disk_size: 51200
+    memory: 8192
+    cpus: 2
+    boot_wait: 2m
+
+vmware_data:
+  - short_name: canvia-dev6.0
+    host: 172.23.1.17
+    dc: COT-DEV01
+    datastore: c1_3p84_ssd_cloud_test_id010

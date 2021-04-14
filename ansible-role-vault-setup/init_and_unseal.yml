@@ -1,0 +1,29 @@
+- name: Query initialization status
+  shell: |
+    . /etc/profile
+    vault status -format json
+  failed_when: vault_status.rc not in [0,2]
+  register: vault_status
+
+- name: Initialize Vault
+  shell: |
+    . /etc/profile
+    vault operator init -format json
+  register: vault_init
+  when: (vault_status.stdout | from_json)['initialized'] == False
+
+- name: Save init info
+  set_fact:
+    vault_init_keys: "{{ (vault_init.stdout | from_json)['unseal_keys_b64'] }}"
+    vault_root_token: "{{ (vault_init.stdout | from_json)['root_token'] }}"
+  when: vault_init.changed
+
+- name: Unseal Vault
+  shell: |
+    . /etc/profile
+    vault operator unseal {{ item }}
+  with_items: "{{ vault_init_keys[0:3] }}"
+  when: vault_init_keys is defined
+  loop_control:
+    index_var: index
+    label: Key {{ index+1 }}...

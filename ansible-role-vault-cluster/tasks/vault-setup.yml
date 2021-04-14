@@ -1,0 +1,278 @@
+---
+- name: Instalar consul
+  include_tasks: consul-common.yml
+
+- name: Crear configuracion JSON de consul agent
+  register: consul_config
+  template:
+    src: templates/consul-agent.json.j2
+    dest: /etc/consul/consul.json
+    mode: 0640
+    owner: consul
+    group: consul
+
+- name: Reiniciar servicio consul agent
+  when: consul_config.changed
+  service:
+    name: consul
+    state: restarted
+    enabled: yes
+
+- name: Verificar existencia de vault
+  register: vault_command
+  command: which vault
+  failed_when: vault_command.rc not in [0,1]
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Descargar vault
+  when: vault_command.rc != 0
+  register: vault_download
+  get_url:
+    url: "{{ vault_url }}"
+    dest: /tmp/{{ vault_url | basename }}
+    mode: 0644
+
+- name: Descomprimir vault
+  when: vault_download.changed
+  unarchive:
+    src: "/tmp/{{ vault_url | basename }}"
+    remote_src: yes
+    dest: /usr/local/bin
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Eliminar zip de vault
+  when: vault_download.changed
+  file:
+    state: absent
+    path: /tmp/{{ vault_url | basename }}
+
+- name: Crear grupo para vault
+  group:
+    name: vault
+    system: yes
+
+- name: Crear usuario para vault
+  user:
+    name: vault
+    system: yes
+    group: vault
+
+- name: Crear directorios de vault
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: vault
+    group: vault
+    mode: 0750
+  with_items:
+    - /etc/vault
+    - /var/vault/data
+    - /var/vault/log
+
+- name: Crear configuracion de servicio vault
+  register: vault_service
+  template:
+    src: templates/vault.service.j2
+    dest: /etc/systemd/system/vault.service
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Recargar systemd    
+  when: vault_service.changed
+  command: systemctl daemon-reload
+
+- name: Crear configuracion tmpfiles.d de vault
+  register: tmpfiles_vault
+  template:
+    src: templates/vault-tmpfiles.conf.j2
+    dest: /etc/tmpfiles.d/vault.conf
+
+- name: Aplicar cambios tmpfiles.d de vault
+  when: tmpfiles_vault.changed
+  command: systemd-tmpfiles --create
+
+- name: Habilitar autocompletado vault
+  command: vault -autocomplete-install
+  register: vault_autocomplete
+  failed_when: vault_autocomplete.rc not in [0,1]
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Reconfigurar variables para entorno TLS
+  when:
+    - vault_tls_disable == 0
+    - (ca_cert_file is not defined or server_cert_file is not defined or server_key_file is not defined)
+  set_fact:
+    vault_tls_disable: 1
+
+- name: Crear configuracion HCL de vault
+  register: vault_config
+  template:
+    src: templates/vault.hcl.j2
+    dest: /etc/vault/config.hcl
+    mode: 0640
+    owner: vault
+    group: vault
+
+- name: Configurar Vault con auto unseal de AWS KMS
+  when:
+    - aws_access_key is defined
+    - aws_secret_key is defined
+    - aws_kms_key_id is defined
+  register: vault_autounseal_config
+  blockinfile:
+    path: /etc/vault/config.hcl
+    marker: "# vault autounseal block"
+    insertbefore: 'storage.*{'
+    block: |
+      seal "awskms" {
+        region     = "{{ aws_region }}"
+        access_key = "{{ aws_access_key }}"
+        secret_key = "{{ aws_secret_key }}"
+        kms_key_id = "{{ aws_kms_key_id }}"
+      }
+
+- name: Copiar archivos para configuracion TLS
+  when:
+    - vault_tls_disable == 0
+    - ca_cert_file is defined
+    - server_cert_file is defined
+    - server_key_file is defined
+  copy:
+    dest: /etc/vault/
+    src: "{{ item }}"
+    mode: 0400
+    owner: vault
+    group: vault
+  with_items:
+    - "{{ ca_cert_file }}"
+    - "{{ server_cert_file }}"
+    - "{{ server_key_file }}"
+
+- name: Instalar certificado CA localmente
+  when:
+    - vault_tls_disable == 0
+    - ca_cert_file is defined
+    - server_cert_file is defined
+    - server_key_file is defined
+  register: caroot_install
+  copy:
+    src: "{{ ca_cert_file }}"
+    dest: /etc/pki/ca-trust/source/anchors/
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Actualizar lista de certificados locales
+  when: caroot_install.changed
+  command: update-ca-trust
+
+- name: Configurar archivos de certificados TLS
+  when:
+    - vault_tls_disable == 0
+    - ca_cert_file is defined
+    - server_cert_file is defined
+    - server_key_file is defined
+  register: vault_tls_config
+  blockinfile:
+    path: /etc/vault/config.hcl
+    marker: "# vault tls config"
+    insertafter: 'tls_disable'
+    block: |
+        tls_cert_file = "/etc/vault/{{ vault_hostname }}-cert.pem"
+        tls_key_file = "/etc/vault/{{ vault_hostname }}-key.pem"
+        tls_min_version = "tls12"
+        tls_disable_client_certs = "true"
+
+- name: Reiniciar servicio vault
+  when: true in [vault_config.changed, vault_autounseal_config.changed, vault_tls_config.changed]
+  service:
+    name: vault
+    state: restarted
+    enabled: yes
+
+- name: Configurar variable de direccion de vault
+  set_fact:
+    vault_addr: "{{ 'http' if vault_tls_disable == 1 else 'https' }}://{{ vault_hostname }}:8200"
+
+- name: Definir variables de entorno de vault
+  lineinfile:
+    path: /etc/profile
+    regexp: "^export.*VAULT_ADDR"
+    line: "export VAULT_ADDR={{ vault_addr }}"
+
+- name: Verificar disponibilidad de servicio Vault
+  command: vault status
+  register: vault_result
+  retries: 720
+  delay: 5
+  no_log: no
+  ignore_errors: no
+  failed_when: vault_result.rc not in [0,2]
+  until: vault_result.rc in [0,2]
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Capturar estado de inicializacion de Vault
+  shell: vault status -format json | jq -r '.initialized'
+  register: vault_init_state
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Tareas de inicializacion y configuracion de Vault en el 1er nodo
+  when:
+    - vault_init_state.stdout == "false"
+    - vault_nodes[0].ip == ansible_host
+  block:
+    - name: Inicializar Vault
+      register: vault_run_init
+      command: vault operator init
+      environment:
+        PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+        VAULT_ADDR: "{{ vault_addr }}"
+
+    - name: Obtener token de inicializacion
+      when: vault_run_init.changed
+      set_fact:
+        vault_token: "{{ vault_run_init.stdout | regex_search('Token.*$', multiline=True, ignorecase=True) | regex_search('\\s.*$', multiline=False) | regex_replace('\\s','') }}"
+
+    - name: Guardar informacion de inicializacion
+      when: vault_run_init.changed
+      register: vault_init_saved
+      copy:
+        dest: "{{ vault_init_file }}"
+        content: "{{ vault_run_init.stdout }}"
+
+    - name: Configurar licencia de Vault Enterprise
+      when:
+        - vault_license is defined 
+        - vault_version | regex_search('ent', ignorecase=True)
+      command: vault write sys/license text={{ vault_license }}
+      environment:
+        PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "{{ vault_addr }}"
+
+    - name: Capturar estado sealed de Vault
+      when: vault_token is defined
+      register: vault_seal_state
+      shell: vault status -format json | jq -r '.sealed'
+      environment:
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "{{ vault_addr }}"
+
+    - name: Configurar auditoria de Vault
+      when:
+        - vault_token is defined
+        - vault_seal_state.stdout == 'false'
+      command: vault audit enable file file_path=/var/vault/log/audit.json
+      environment:
+        PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "{{ vault_addr }}"

@@ -1,0 +1,14 @@
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-basevars
+  scm: git
+  version: master
+  name: canvia.os-basevars
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-antivirus
+  scm: git
+  version: master
+  name: canvia.os-antivirus
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-customization
+  scm: git
+  version: master
+  name: canvia.os-customization

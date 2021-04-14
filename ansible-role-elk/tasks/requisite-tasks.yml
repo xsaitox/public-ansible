@@ -1,0 +1,23 @@
+---
+- name: Instalar dependencias
+  yum:
+    name: "{{ base_packages }}"
+    state: present
+
+- name: Deshabilitar SELinux
+  selinux:
+    state: disabled
+
+- name: Consultar si existe el servicio FirewallD
+  stat:
+    path: /usr/lib/systemd/system/firewalld.service
+  register: firewalld_service
+  ignore_errors: yes
+  no_log: no
+
+- name: Deshabilitar FirewallD
+  service:
+    name: firewalld
+    state: stopped
+    enabled: no
+  when: firewalld_service.stat.exists

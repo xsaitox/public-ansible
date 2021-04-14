@@ -1,0 +1,6 @@
+---
+- name: Registrar sistema Linux
+  include_tasks: linux-register.yml
+  when:
+    - ansible_system == 'Linux'
+    - hypervisor not in ["aws","azure"]

@@ -1,0 +1,47 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Verificar que exista las variables requeridas
+      assert:
+        that:
+          - customer_prefix is defined
+          - report_name_prefix is defined
+        fail_msg: No se ha definido una o mas variables requeridas{{ ':' }} customer_prefix, report_name_prefix
+        success_msg: Validacion de variables exitosa
+
+    - name: Modificar nombre de reporte
+      set_fact:
+        report_name: "{{ report_name_prefix }}-LUNs.xlsx"
+
+    - name: Mostrar nombre de reporte
+      debug:
+        msg: "{{ report_name }}"
+
+    - name: Buscar archivos de reporte SVC
+      find:
+        paths: .
+        patterns: '*.svc'
+        recurse: yes
+      register: findings
+
+    - name: Procesar reportes de SVC con prefijo "{{ customer_prefix }}"
+      command: ./files/filter-svc-luns.sh {{ customer_prefix }} {{ item.path }}
+      register: result
+      with_items: "{{ findings.files }}"
+      loop_control:
+        label: ""
+
+    - name: Generar reporte
+      command: ./consolidate-svc-report.sh {{ report_name }}
+      args:
+        chdir: ./files
+
+    - name: Borrar archivos temporales generados
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - "files/*.svc"
+        - "files/*.svc.csv"

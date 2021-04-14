@@ -1,0 +1,34 @@
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-basevars
+  scm: git
+  version: master
+  name: canvia.os-basevars
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-register
+  scm: git
+  version: master
+  name: canvia.os-register
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-baseline
+  scm: git
+  version: master
+  name: canvia.os-baseline
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-hardening
+  scm: git
+  version: master
+  name: canvia.os-hardening
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-users
+  scm: git
+  version: master
+  name: canvia.os-users
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-monitoring
+  scm: git
+  version: master
+  name: canvia.os-monitoring
+
+- src: ssh://git@bitbucket.org/automatizacioncanvia/ansible-role-os-update
+  scm: git
+  version: master
+  name: canvia.os-update

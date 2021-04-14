@@ -1,0 +1,44 @@
+---
+- name: Look for Vault systemd file
+  register: vault_systemd_file
+  stat:
+    path: /etc/systemd/system/vault.service
+
+- name: Look for Vault SysV file
+  register: vault_sysv_file
+  stat:
+    path: /etc/init.d/vault
+
+- name: Make sure Vault is stopped
+  when: vault_systemd_file.stat.exists or vault_sysv_file.stat.exists
+  service:
+    name: vault
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Remove Vault installation files and directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ vault_config_dir }}"
+    - "{{ vault_data_dir }}"
+    - "{{ vault_audit_dir }}"
+    - "{{ vault_runtime_dir }}"
+    - "{{ vault_bin_dir }}/vault"
+    - "{{ vault_home_dir }}"
+    - /tmp/{{ vault_url | basename }}
+    - /etc/systemd/system/vault.service
+    - /etc/init.d/vault
+    - /etc/tmpfiles.d/vault.conf
+
+- name: Remove Vault user
+  user:
+    name: "{{ vault_user }}"
+    state: absent
+
+- name: Remove Vault group
+  group:
+    name: "{{ vault_group }}"
+    state: absent

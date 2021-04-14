@@ -1,0 +1,56 @@
+---
+- name: Detener vault
+  service:
+    name: vault
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Detener consul
+  service:
+    name: consul
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Borrar archivos de consul
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/consul
+    - /var/consul
+    - /etc/systemd/system/consul.service
+    - /usr/local/bin/consul
+
+- name: Borrar archivos de vault
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/vault
+    - /var/vault
+    - /etc/systemd/system/vault.service
+    - /usr/local/bin/vault
+    - "{{ vault_init_file }}"
+
+- name: Borrar usuario de consul
+  user:
+    name: consul
+    state: absent
+
+- name: Borrar grupo de consul
+  group:
+    name: consul
+    state: absent
+  
+- name: Borrar usuario de vault
+  user:
+    name: vault
+    state: absent
+
+- name: Borrar grupo de vault
+  group:
+    name: vault
+    state: absent
+  

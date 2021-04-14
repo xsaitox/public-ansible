@@ -1,0 +1,199 @@
+---
+- name: Instalar actualizaciones 1
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 2
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 3
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 4
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 5
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 6
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 7
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 8
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 9
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True
+
+- name: Instalar actualizaciones 10
+  win_updates:
+    category_names: "{{ windows_update_categories }}"
+  register: updates
+  vars:
+    ansible_winrm_operation_timeout_sec: 120
+    ansible_winrm_read_timeout_sec: 150
+  failed_when:
+    updates.failed_update_count is defined and
+    updates.failed_update_count > 0 and
+    1 == 2
+  when: updates.installed_update_count is defined and updates.installed_update_count > 0
+
+- debug: msg={{ updates }}
+
+- name: Reboot Windows
+  win_reboot:
+    reboot_timeout: 3600
+  when: updates.reboot_required is defined and updates.reboot_required == True

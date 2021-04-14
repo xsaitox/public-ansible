@@ -1,0 +1,2 @@
+start on control-alt-delete
+exec /bin/logger -p authpriv.notice -t init "Ctrl-Alt-Del was pressed and ignored"

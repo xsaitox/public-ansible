@@ -1,0 +1,7 @@
+group_vars/*
+roles/canvia.*
+vars-*yml
+*.orig
+defaults/main_*yml
+test/*
+backup/*

@@ -1,0 +1,8 @@
+---
+- name: Aplicar actualizaciones de Linux
+  include_tasks: linux-update.yml
+  when: ansible_system == 'Linux'
+
+- name: Aplicar actualizaciones de Windows
+  include_tasks: windows-update.yml
+  when: ansible_system == 'Win32NT'

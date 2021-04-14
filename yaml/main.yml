@@ -1,0 +1,33 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    desired_value: vol-0001
+    disks:
+      - name: C-drive
+        volume_id: vol-0001
+        snapshot_id: snap-0001
+      - name: C-drive
+        volume_id: vol-0001
+        snapshot_id: snap-0002
+      - name: C-drive
+        volume_id: vol-0001
+        snapshot_id: snap-0003
+      - name: D-drive
+        volume_id: vol-0002
+        snapshot_id: snap-A001
+      - name: D-drive
+        volume_id: vol-0002
+        snapshot_id: snap-A001
+  tasks:
+    - name: Filter specific snapshots with common volume_id
+      set_fact:
+        snapshots: "{{ (disks | selectattr('volume_id','equalto',desired_value) | map(attribute='snapshot_id') | list) }}"
+    
+    - set_fact:
+        filtered_snapshots:
+          volume_id: "{{ desired_value }}"
+          snapshot_ids: "{{ snapshots }}"
+
+    - debug: var=filtered_snapshots

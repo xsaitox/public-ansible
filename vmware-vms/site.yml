@@ -1,0 +1,33 @@
+---
+- name: Creacion de VM
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Configuracion de pre-requisitos
+      include_tasks: tasks/prerequisites.yml
+
+    - name: Crear VM
+      include_tasks: tasks/vm-creation.yml
+
+    - name: Agregar el host al inventario Ansible en caliente
+      add_host:
+        name: "{{ os_ipaddr }}"
+        group: "{{ tmpjob }}"
+
+- name: Configuracion de VM
+  hosts: "{{ hostvars['localhost'].tmpjob }}"
+  gather_facts: no
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: False
+  tasks:
+    - name: Tareas post de VM
+      include_tasks: tasks/post-vm.yml
+
+- name: Tareas finales
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Tareas post locales
+      include_tasks: tasks/post-local.yml

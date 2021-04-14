@@ -1,0 +1,78 @@
+# - name: Enviar archivo terraform a S3
+#   aws_s3:
+#     bucket: "{{  terraform_bucket  }}"
+#     object: "terraform/aws/{{  terraform_key_client  }}/{{  terraform_key_name  }}-{{  datetime  }}/main.tf"
+#     src: "{{ var_job  }}/main.tf"
+#     mode: put
+
+- name: Git
+  block:
+
+    - name: Eliminando carpeta anterior
+      file:
+        path: .tmp/{{  git_name  }}
+        state: absent
+
+    - name: Git - Clone
+      command: "git clone {{  git_url  }}"
+      args:
+        chdir: .tmp
+
+    - name: Creando carpeta
+      file:
+        path: ".tmp/{{  git_name  }}/{{  terraform_key_client  }}/AWS/{{  ec2_name  }}/.terraform"
+        state: directory
+
+    - name: Git - User
+      shell: git config user.email "automatizacioncanvia@canvia.com" && git config user.name "Automatizacion Canvia"
+      args:
+        chdir: .tmp/{{  git_name  }}
+
+    - name: Copiar principal
+      copy:
+        src: "{{ var_job  }}/main.tf"
+        dest: .tmp/{{  git_name  }}/{{  terraform_key_client  }}/AWS/{{  ec2_name  }}/main.tf
+
+    - name: Git - Adding
+      command: "git add *"
+      args:
+        chdir: .tmp/{{  git_name  }}
+
+    - name: Git - Commiting
+      command: git commit -m "Add VM"
+      args:
+        chdir: .tmp/{{  git_name  }}
+
+    - name: Git - Push
+      command: "git push {{  git_url  }}"
+      args:
+        chdir: .tmp/{{  git_name  }}
+
+- name: Eliminar llave temporal del EC2
+  ec2_key:
+    name: "key_temp_{{  var_job  }}"
+    state: absent
+    region: "{{  ec2_region  }}"
+  when: so_type == "Linux"
+
+- name: Enviar por correo la clave de administrador
+  mail:
+    host: "{{ smtp_server }}"
+    port: 25
+    from: "{{ mail_from }}"
+    to: "{{ mail_to }}"
+    subject: "{{ mail_subject }}"
+    body: "{{ mail_body }}"
+    attach:
+      - "{{ var_job }}/password"
+  run_once: yes
+
+- name: Remover archivos temporales
+  file:
+    state: absent
+    path: "{{ var_job }}"
+
+- name: Eliminar repositorio
+  file:
+    state: absent
+    path: .tmp/prueba

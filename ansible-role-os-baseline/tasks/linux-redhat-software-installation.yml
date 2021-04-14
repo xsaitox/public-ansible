@@ -1,0 +1,32 @@
+---
+- name: Instalar software esencial en Redhat/Centos/Oracle < 6
+  yum: 
+    name: "{{ linux_redhat6_packages }}"
+    state: present 
+  when:
+    os_release.split('.')[0] == '6' 
+
+- name: Instalar software esencial en Red Hat/CentOS/Oracle = 7
+  yum:
+    name: "{{ linux_redhat7_packages }}"
+    state: present
+  when:
+    os_release.split('.')[0] == '7' 
+
+- name: Instalar software esencial en CentOS/RHEL/Oracle High Version > 7
+  yum:
+    name: "{{ linux_redhat8_packages }}"
+    state: present
+  when:
+    os_release.split('.')[0] == '8'
+
+- name: Instalar Server with GUI en RHEL 8 / CentOS 8 / Oracle 8
+  command: dnf groupinstall -y --skip-broken "Server with GUI"
+  when:
+    - os_release.split('.')[0] == '8'
+    - os_vendor == 'rhel'
+
+- name: Remover software innecesario
+  yum:
+    name: libvirt-daemon
+    state: absent

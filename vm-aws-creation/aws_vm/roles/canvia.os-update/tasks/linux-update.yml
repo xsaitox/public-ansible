@@ -1,0 +1,28 @@
+---
+- name: Actualizar sistema operativo Red Hat/CentOS
+  yum:
+    name: '*'
+    state: latest
+  when: ansible_os_family == 'RedHat'
+
+- name: Actualizar sistema operativo SUSE
+  zypper:
+    name: '*'
+    state: latest
+  when: ansible_os_family == 'Suse'
+
+- name: Actualizar sistema operativo Debian/Ubuntu
+  apt:
+    name: '*'
+    state: latest
+    update_cache: yes
+  when: ansible_os_family == 'Debian'
+
+- name: Reiniciar para aplicar los cambios
+  reboot:
+    reboot_timeout: 300
+
+- name: Remover kernels antiguos sin uso en Red Hat/CentOS
+  shell: |
+    package-cleanup --oldkernels --count=1 -y
+  when: ansible_os_family == 'RedHat'

@@ -1,0 +1,25 @@
+---
+- hosts: all
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: Definir variables de sistema
+      include_role:
+        name: canvia.os-basevars
+
+    - name: Aplicar hardening
+      include_role:
+        name: canvia.os-hardening
+
+    - name: Configurar linea base de sistema operativo
+      include_role:
+        name: canvia.os-baseline
+
+    - name: Configurar usuarios de sistema operativo
+      include_role:
+        name: canvia.os-users
+
+    - name: Aplicar actualizaciones de sistema operativo
+      include_role:
+        name: canvia.os-update
+

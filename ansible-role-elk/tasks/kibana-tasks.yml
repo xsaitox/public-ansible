@@ -1,0 +1,30 @@
+---
+- name: Instalar dependencias para Kibana
+  yum:
+    name: "{{ kibana_packages }}"
+    state: present
+
+- name: Instalar modulos de Python requeridos
+  pip:
+    name: docker
+    state: present
+
+- name: Obtener imagen de Kibana
+  docker_image:
+    name: "{{ kibana_docker_repo }}:{{ kibana_version }}"
+    source: pull
+
+- name: Crear configuracion de Kibana
+  template:
+    src: kibana.yml
+    dest: /etc/kibana.yml
+
+- name: Iniciar contenedor de Kibana
+  docker_container:
+    name: kibana
+    image: "{{ kibana_docker_repo }}:{{ kibana_version }}"
+    state: started
+    ports:
+      - "5601:5601"
+    volumes:
+      - /etc/kibana.yml:/usr/share/kibana/config/kibana.yml

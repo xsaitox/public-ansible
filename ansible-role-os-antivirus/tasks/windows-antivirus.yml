@@ -1,0 +1,51 @@
+---
+- name: Descargar instaladores de McAfee localmente
+  shell: |
+    smbclient {{ smbinst_share }} -U '{{ smbinst_domain }}\{{ smbinst_user }}'%'{{ smbinst_pass }}' -c "recurse ; prompt off ; cd {{ item | dirname }} ; mget {{ item | basename }}"
+  delegate_to: localhost
+  with_items:
+    - "{{ path_mcafeeagent }}"
+    - "{{ path_mcafeevse }}"
+
+- name: Tareas remotas en equipo Windows
+  block:
+    - name: Copiar instalador de Agente McAfee
+      win_copy:
+        src: "{{ path_mcafeeagent | basename }}"
+        dest: C:\Windows\temp\{{ path_mcafeeagent | basename }}
+
+    - name: Copiar instalador de Antivirus McAfee (VSE)
+      win_copy:
+        src: "{{ path_mcafeevse | basename }}"
+        dest: C:\Windows\temp\
+
+    - name: Instalar Agente McAfee
+      win_package:
+        path: C:\Windows\temp\{{ path_mcafeeagent | basename }}
+        arguments: /Install=Agent /silent /ForceInstall
+        state: present
+        product_id: "{{ productid_mcafeeagent }}"
+
+    - name: Instalar Antivirus McAfee (VSE)
+      win_package:
+        path: C:\Windows\temp\{{ path_mcafeevse | basename }}\SetupVSE.exe
+        arguments: /q ADDLOCAL=ALL RUNAUTOUPDATE=True RUNAUTOUPDATESILENTLY=True RUNONDEMANDSCAN="" RUNONDEMANDSCANSILENTLY=""
+        state: present
+        product_id: "{{ productid_mcafeevse }}"
+
+    - name: Borrar instaladores copiados
+      win_file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - C:\Windows\temp\{{ path_mcafeeagent | basename }}
+        - C:\Windows\temp\{{ path_mcafeevse | basename }}
+      ignore_errors: yes
+
+- name: Eliminar instaladores de McAfee descargados localmente
+  shell: |
+    rm -rf {{ item | basename }}
+  delegate_to: localhost
+  with_items:
+    - "{{ path_mcafeeagent }}"
+    - "{{ path_mcafeevse }}"

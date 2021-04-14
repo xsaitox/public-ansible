@@ -1,0 +1,42 @@
+---
+- name: Verificar variables esenciales generales
+  assert:
+    that:
+      - consul_version is defined
+      - consul_nodes is defined
+      - consul_dc is defined
+      - vault_version is defined
+      - vault_tls_disable is defined
+      - vault_hostname is defined
+    success_msg: Validacion de variables exitosa
+    fail_msg: Una o mas variables necesarias no ha sido definida
+
+- name: Tareas de desinstalacion
+  when:
+    - uninstall is defined
+    - uninstall == True
+  include_tasks: uninstall.yml
+
+- name: Tareas de instalacion
+  when:
+    uninstall is not defined or 
+    (uninstall is defined and uninstall == False)
+  block:
+    - name: Tareas de identificacion de facts
+      include_tasks: facts-setup.yml
+
+    - name: Tareas de preparacion de consul
+      include_tasks: consul-preparation.yml
+      when: consul_nodename is defined
+
+    - name: Tareas de instalacion de consul
+      include_tasks: consul-setup.yml
+      when: consul_nodename is defined
+
+    - name: Tareas de preparacion de vault
+      include_tasks: vault-preparation.yml
+      when: vault_nodename is defined
+
+    - name: Tareas de instalacion de vault
+      include_tasks: vault-setup.yml
+      when: vault_nodename is defined

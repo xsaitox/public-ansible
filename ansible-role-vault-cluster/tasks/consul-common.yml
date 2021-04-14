@@ -1,0 +1,83 @@
+---
+- name: Verificar existencia de consul
+  command: which consul
+  register: consul_command
+  failed_when: consul_command.rc not in [0,1]
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Descargar consul
+  get_url:
+    url: "{{ consul_url }}"
+    dest: /tmp/{{ consul_url | basename }}
+    mode: 0644
+  register: consul_download
+  when: consul_command.rc != 0
+
+- name: Descomprimir consul
+  unarchive:
+    src: /tmp/{{ consul_url | basename }}
+    remote_src: yes
+    dest: /usr/local/bin
+    mode: 0755
+    owner: root
+    group: root
+  when: consul_download.changed
+
+- name: Eliminar zip de consul
+  file:
+    state: absent
+    path: /tmp/{{ consul_url | basename }}
+  when: consul_download.changed
+
+- name: Crear grupo para consul
+  group:
+    name: consul
+    system: yes
+
+- name: Crear usuario para consul
+  user:
+    name: consul
+    system: yes
+    group: consul
+    
+- name: Crear directorios de consul
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: consul
+    group: consul
+    mode: 0750
+  with_items:
+    - /etc/consul
+    - /var/consul/data
+
+- name: Crear configuracion tmpfiles.d de consul
+  template:
+    src: templates/consul-tmpfiles.conf.j2
+    dest: /etc/tmpfiles.d/consul.conf
+  register: tmpfiles_consul
+
+- name: Aplicar cambios tmpfiles.d de consul
+  command: systemd-tmpfiles --create
+  when: tmpfiles_consul.changed
+
+- name: Habilitar autocompletado consul
+  command: consul -autocomplete-install
+  register: consul_autocomplete
+  failed_when: consul_autocomplete.rc not in [0,1]
+  environment:
+    PATH: "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+
+- name: Crear configuracion de servicio consul
+  template:
+    src: templates/consul.service.j2
+    dest: /etc/systemd/system/consul.service
+    mode: 0644
+    owner: root
+    group: root
+  register: consul_service
+
+- name: Recargar systemd    
+  command: systemctl daemon-reload
+  when: consul_service.changed

@@ -1,0 +1,28 @@
+---
+- name: Verificar variables esenciales de vault
+  assert:
+    that:
+      - vault_nodename is defined
+    success_msg: Validacion de variables exitosa
+    fail_msg: Una o mas variables necesarias no ha sido definida
+
+- name: Tareas de configuracion general Linux
+  include_tasks: common.yml
+
+- name: Configurar reglas de Firewall para vault (solo basados en RedHat)
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+  with_items: "{{ vault_firewall_ports }}"
+  register: firewall_rules
+  when:
+    - consul_firewall_ports is defined
+    - vault_firewall_ports is defined
+    - os_version in ["rhel7","rhel8","centos7","centos8","amazon2"]
+
+- name: Aplicar cambios en reglas de FirewallD para vault (solo basados en RedHat)
+  command: firewall-cmd --reload
+  when:
+    - os_version in ["rhel7","rhel8","centos7","centos8","amazon2"]
+    - firewall_rules.changed

@@ -1,0 +1,5 @@
+---
+- name: Instalar dependencias para Maven
+  yum:
+    name: "{{ maven_packages }}"
+    state: present

@@ -1,0 +1,79 @@
+{
+    "builders": [
+        {
+            "type":                 "vsphere-clone",
+            "datacenter":           "{{ vsphere_datacenter }}",
+            "vcenter_server":       "{{ vmware_host }}",
+            "username":             "{{ vmware_user }}",
+            "password":             "{{ vmware_password }}",
+            "insecure_connection":  true,
+            "vm_name":              "img_{{ os_name }}_{{ datetime }}",
+            "cluster":              "{{ vm_cluster }}",
+            "folder":               "{{ template_folder }}",
+            "resource_pool":        "{{ vm_resourcepool }}",
+            "template":             "{{ vm_template }}",
+            "datastore":            "{{ vm_datastore }}",
+            "CPUs":                 "2",
+            "CPU_limit":             -1,
+            "RAM":                  "8192",
+            "RAM_reserve_all":       true,
+            "disk_size":             "51200",
+            "linked_clone":          false,
+            "convert_to_template":   true,
+            {% if os | regex_search("win", ignorecase=True) %}"communicator":          "winrm",
+            "winrm_username":        "{{ os_adminuser }}",
+            "winrm_use_ssl":         true,
+            "winrm_password":        "{{ os_adminpass }}",
+            "winrm_insecure":        true{% else %}"communicator":          "ssh",
+            "ssh_username":        "{{ os_adminuser }}",
+            "ssh_password":        "{{ os_adminpass }}"
+{% endif %}
+
+        }
+    ],
+    "provisioners": [
+        {% if os == 'windows' %}{
+            "type": "powershell",
+            "inline": [
+                "$ipv4 = (Test-Connection -ComputerName $env:computername -count 1).ipv4address.IPAddressToString",
+                "$ipv4 | Out-File C:\\Windows\\Temp\\host -Encoding ascii"
+            ]
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "C:\\Windows\\Temp\\host",
+            "destination": "ipv4-{{ tmpjob }}.txt"
+        },
+        {
+            "type": "shell-local",
+            "inline": [
+                "cat ipv4-{{ tmpjob }}.txt >> inventory-{{ tmpjob }}.ini",
+                "rm -f ipv4-{{ tmpjob }}.txt",
+                "sed -i -e 's/5985/5986/g' group_vars/{{ tmpjob }}",
+                "ansible-playbook -i inventory-{{ tmpjob }}.ini postinstall-{{ tmpjob }}.yml"
+            ]
+        }{% else %}{
+            "type": "shell",
+            "inline": [
+                "ip addr show dev eth0 | grep -w inet | awk '{ print $2 }' | cut -d / -f 1 > /tmp/.ipv4.txt"
+            ]
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "/tmp/.ipv4.txt",
+            "destination": "ipv4-{{ tmpjob }}.txt"
+        },
+        {
+            "type": "shell-local",
+            "environment_vars": ["ANSIBLE_HOST_KEY_CHECKING=False"],
+            "inline": [
+                "cat ipv4-{{ tmpjob }}.txt >> inventory-{{ tmpjob }}.ini",
+                "ssh-keygen -R $(cat ipv4-{{ tmpjob }}.txt)",
+                "rm -f ipv4-{{ tmpjob }}.txt",
+                "ansible-playbook -i inventory-{{ tmpjob }}.ini {% if os_register_username is defined %}-e os_register_username={{ os_register_username }}{% endif %} {% if os_register_password is defined %}-e os_register_password={{ os_register_password }}{% endif %} postinstall-{{ tmpjob }}.yml"
+            ]
+        }{% endif %}
+    ]
+}

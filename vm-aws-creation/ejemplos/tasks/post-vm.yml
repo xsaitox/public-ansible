@@ -1,0 +1,76 @@
+---
+- name: Esperar a establecer la conexion
+  wait_for_connection:
+    timeout: 1200
+    sleep: 5
+
+- name: Recopilar facts
+  setup:
+
+- name: Importar rol de variables base
+  include_role:
+    name: canvia.os-basevars
+
+- name: Importar rol de instalacion de antivirus
+  include_role:
+    name: canvia.os-antivirus
+  when: ansible_os_family == 'Windows'
+
+- name: Configuraciones personalizadas de sistema
+  include_role:
+    name: canvia.os-customization
+
+- name: Instalacion de antivirus
+  include_role:
+    name: canvia.os-antivirus
+
+# Artificio para poder conectarse a la VM Linux y cambiarle la clave de root,
+# esto debido a que la fase de customizacion de VMware para equipos Linux no funciona
+# del todo, a menos no para el cambio de clave de root
+# El artificio consiste en conectarse con el usuario cnvadmin, el cual se asume ya creado
+# previamente en el template y con el realizar las labores administrativas privilegiadas
+# - name: Incluir variables de rol de usuarios
+#   include_vars:
+#     dir: ../roles/os-users/defaults
+
+# - name: Designar variable de usuario administrador
+#   set_fact:
+#     ssh_adminuser: "{{ linux_users | selectattr('user','equalto','cnvadmin') | first }}"
+
+# - name: Incluir variables necesarias
+#   include_vars:
+#     file: vars/linux-vars.yml
+
+# - name: Remover huella de host SSH
+#   shell: |
+#     ssh-keygen -R {{ os_ipaddr }}
+#   delegate_to: localhost
+
+# - name: Esperar a establecer la conexion
+#   wait_for_connection:
+#     timeout: 1200
+#     sleep: 5
+
+# - name: Recopilar facts
+#   setup:
+#     gather_subset: all
+
+# - name: Importar rol de variables base
+#   include_role:
+#     name: os-basevars
+
+# - name: Configuraciones personalizadas de sistema
+#   include_role:
+#     name: os-customization
+
+# - name: Obtener la clave aleatoria de root
+#   shell: |
+#     grep -w password {{ adminpass_file }} | awk '{ print $2 }'
+#   register: os_randomadminpass
+#   delegate_to: localhost
+
+# - name: Asignar la clave de root
+#   user:
+#     name: root
+#     password: "{{ os_randomadminpass.stdout | password_hash('sha512') }}"
+

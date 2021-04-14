@@ -1,0 +1,4 @@
+- src: https://github.com/arengifoc/ansible-role-elk.git
+  scm: git
+  version: feature/getting-started
+  name: arengifoc.elk

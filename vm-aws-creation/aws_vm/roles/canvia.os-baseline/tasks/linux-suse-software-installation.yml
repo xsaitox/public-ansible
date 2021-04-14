@@ -1,0 +1,5 @@
+---
+- name: Instalar software esencial en SUSE
+  zypper:
+    name: "{{ linux_suse_packages }}"
+    state: present

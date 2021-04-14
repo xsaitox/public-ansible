@@ -1,0 +1,4 @@
+---
+vault_version: 1.4.3
+vault_tls_disable: 0
+vault_storage: raft

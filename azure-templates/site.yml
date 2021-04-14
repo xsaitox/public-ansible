@@ -1,0 +1,133 @@
+---
+- hosts: localhost
+  connection: local
+  environment:
+    TZ: America/Lima
+  vars:
+    os_adminuser: packer
+  gather_facts: yes
+  tasks:
+    - name: Buscando credenciales para Microsoft Azure
+      set_fact:
+        client_id: "{{ lookup('env','AZURE_CLIENT_ID') }}"
+        client_secret: "{{ lookup('env','AZURE_SECRET') }}"
+        tenant_id: "{{ lookup('env','AZURE_TENANT') }}"
+        subscription_id: "{{ lookup('env','AZURE_SUBSCRIPTION_ID') }}"
+
+    - name: Abortar si no se encuentra credenciales de Azure
+      fail:
+        msg: "No se encontro credenciales de Azure"
+      when: not client_id or not client_secret or not tenant_id or not subscription_id
+
+    - name: Definiendo ubicacion de Azure
+      set_fact:
+        azure_location: "{{ azure_friendly_location.split(' ')[0] }}"
+
+    - name: Incluir mapeo de imagenes disponibles
+      include_vars: files/image_mapping.yml
+
+    - name: Filtrando VM deseada
+      set_fact:
+        desired_image: "{{  images | selectattr('os_sku','equalto', os_name) | first  }}"
+
+    - name: Definir variables acorde al VM seleccionado
+      set_fact:
+        os_type: "{{ desired_image.os_type }}"
+        image_publisher: "{{ desired_image.image_publisher }}"
+        image_offer: "{{ desired_image.image_offer }}"
+        image_sku: "{{ desired_image.image_sku }}"
+        vm_name: "{{ desired_image.short_name }}"
+
+    - name: Darle formato fecha y hora en variable
+      set_fact:
+        datetime: "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
+
+    - name: Generando string aleatorio
+      shell: |
+        set -o pipefail
+        date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' 'olzEAsgTBa' | cut -c 1-12
+      register: random_name
+      args:
+        executable: /bin/bash
+
+    - name: Definir nombre de job aleatorio
+      set_fact:
+        tmpjob: "{{ random_name.stdout }}"
+
+    - name: Crear directorio de trabajo
+      file:
+        path: group_vars
+        state: directory
+
+    - name: Crear inventario
+      template:
+        src: templates/inventory.ini.j2
+        dest: inventory-{{ tmpjob }}.ini
+
+    - name: Crear archivo JSON para packer
+      template:
+        src: templates/packer-config.json.j2
+        dest: packer-config-{{ tmpjob }}.json
+
+    - name: Crear playbook post instalacion
+      copy:
+        src: templates/postinstall.yml
+        dest: postinstall-{{ tmpjob }}.yml
+
+    - name: Crear archivo de variables
+      template:
+        src: templates/groupvars.j2
+        dest: group_vars/{{ tmpjob }}
+
+    - name: Crear archivo JSON para packer
+      template:
+        src: templates/packer-config.json.j2
+        dest: packer-config-{{ tmpjob }}.json
+
+    - name: Definir nombre de la imagen
+      set_fact:
+        managed_image_name: "{{ random_name.stdout }}-{{ random_name.stdout }}"
+
+    - name: Crear llave privada personalizada
+      command: ssh-keygen -t rsa -f sshkey-{{ tmpjob }} -q -N ''
+      when: os_type == 'Linux'
+
+    - debug:
+        msg: "Puede ver el progreso con tail -f packer-{{ tmpjob }}.log"
+
+    - name: Crear VM de {{ os_name }} con Packer
+      shell: |
+        set -o pipefail
+        packer build packer-config-{{ tmpjob }}.json 2>&1 | tee packer-{{ tmpjob }}.log
+      register: packer_output
+      args:
+        executable: /bin/bash
+
+    - name: Error de ejecucion de packer (si aplica)
+      debug:
+        msg:
+          - "{{ packer_output.cmd if packer_output.cmd is defined else script }} : {{ packer_output.msg }}"
+          - "{{ packer_output.stdout_lines | default(omit) }}"
+      when: packer_output.failed
+
+    - name: Mostrar salida de error (stderr)
+      debug:
+        msg: "{{ packer_output.stderr_lines if packer_output.stderr_lines is defined and packer_output.stderr_lines != [] else 'No hubo salida de error' }}"
+
+    - name: Mostrar salida estandar (stdout)
+      debug:
+        msg: "{{ packer_output.stdout_lines if packer_output.stdout_lines is defined and packer_output.stdout_lines != [] else 'No hubo salida estandar' }}"
+
+    - name: Borrar archivos usados en la tarea
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - group_vars/{{ tmpjob }}
+        - inventory-{{ tmpjob }}.ini
+        - packer-config-{{ tmpjob }}.json
+        - packer-{{ tmpjob }}.log
+        - postinstall-{{ tmpjob }}.yml
+        - ipv4-{{ tmpjob }}.txt
+        - sshkey-{{ tmpjob }}
+        - sshkey-{{ tmpjob }}.pub

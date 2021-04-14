@@ -1,0 +1,5 @@
+ansible_user: {{ desired_os.admin_user }}
+ansible_password: {{ default_pass }}
+ansible_connection: winrm
+ansible_port: 5986
+ansible_winrm_server_cert_validation: ignore

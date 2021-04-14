@@ -1,0 +1,74 @@
+---
+- name: Registro de Red Hat Enterprise Linux Server
+  redhat_subscription:
+    username: "{{ os_register_username }}"
+    password: "{{ os_register_password }}"
+    auto_attach: yes
+    state: "{{ os_register_state | default(omit) }}"
+  when:
+    - os_vendor == 'rhel'
+    - os_register_username is defined
+    - os_register_username != ""
+    - os_register_password is defined
+    - os_register_password != ""
+
+- name: Bloque de validacion de registro SLES
+  when: os_vendor == 'sles'
+  block:
+    - name: Inscribir host de SMT en /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^{{ smt_ipaddr }}.*{{ smt_hostname }}'
+        line: '{{ smt_ipaddr }} {{ smt_hostname }}'
+
+    - name: Consultar estado de registro SLES
+      command: SUSEConnect -s
+      register: suseconnect_result
+      ignore_errors: yes
+
+    - name: Guardar estado de registro en variable
+      set_fact:
+        suseconnect_status: "{{ suseconnect_result.stdout | from_json | json_query('[*].status') | first if suseconnect_result.rc == 0 else 'Not Registered' }}"
+    
+    - name: Mostrar estado de registro
+      debug:
+        msg: Estado de registro{{ ':' }} {{ suseconnect_status }}
+
+- name: Registro de SUSE Linux Enterprise Server
+  when:
+    - os_vendor == 'sles'
+    - os_register_state == 'present'
+    - suseconnect_status == 'Not Registered'
+  block:
+    - name: Registro - Copiar script de SMT
+      copy:
+        src: files/{{ smt_script }}
+        dest: "{{ smt_script_path }}"
+        mode: 0755
+
+    - name: Registro - Ejecutar proceso de registro
+      command: "{{ smt_script_path }} --host {{ smt_hostname }} --fingerprint {{ smt_fingerprint }} --yes"
+
+- name: Desregistro de SUSE Linux Enterprise Server
+  when:
+    - os_vendor == 'sles'
+    - os_register_state == 'absent'
+    - suseconnect_status == 'Registered'
+  block:
+    - name: Desregistro - Ejecutar proceso de desregistro
+      shell: |
+        echo 'y' | {{ smt_script_path }} --host {{ smt_hostname }} --de-register
+        zypper removeservice {{ smt_servicename }}
+      register: result
+      
+    - name: Desregistro - Eliminar script de SMT
+      file:
+        path: "{{ smt_script_path }}"
+        state: absent
+
+    - name: Desregistro - Borrar inscripcion de host de SMT en /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^{{ smt_ipaddr }}.*{{ smt_hostname }}'
+        state: absent
+

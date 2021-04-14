@@ -1,0 +1,10 @@
+---
+- name: Instalar software esencial en Red Hat/CentOS
+  yum:
+    name: "{{ linux_redhat_packages }}"
+    state: present
+
+- name: Remover software innecesario
+  yum:
+    name: libvirt-daemon
+    state: absent

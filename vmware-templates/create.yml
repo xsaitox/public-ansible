@@ -1,0 +1,57 @@
+---
+- hosts: localhost
+  connection: local
+  environment:
+    TZ: America/Lima
+    ANSIBLE_HOST_KEY_CHECKING: False
+  gather_facts: yes
+  roles:
+    - canvia.os-basevars
+  tasks:
+    - name: Preparacion de requisitos locales
+      include_tasks: tasks/create-prerequisites.yml
+
+- name: Personalizacion de SO con roles
+  hosts: "{{ hostvars['localhost'].tmpjob }}"
+  gather_facts: yes
+  vars:
+    ansible_port: "{{ '5986' if hostvars['localhost'].os == 'windows' else '22' }}"
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: "False"
+  tasks:
+    - include_role:
+        name: canvia.os-basevars
+
+    - include_role:
+        name: canvia.os-register
+      vars:
+        os_register_state: present
+
+    - include_role:
+        name: canvia.os-update
+
+    - include_role:
+        name: canvia.os-baseline
+
+    - include_role:
+        name: canvia.os-hardening
+
+    - include_role:
+        name: canvia.os-users
+
+    - include_role:
+        name: canvia.os-monitoring
+
+    - include_role:
+        name: canvia.os-register
+      vars:
+        os_register_state: absent
+
+- hosts: localhost
+  connection: local
+  environment:
+    TZ: America/Lima
+  gather_facts: no
+  tasks:
+    - name: Tareas locales de finalizacion
+      include_tasks: tasks/create-post.yml

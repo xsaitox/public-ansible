@@ -1,0 +1,130 @@
+---
+- name: Preparar disco para data de Elasticsearch
+  lvg:
+    pvs: "{{ elasticsearch_data_disk }}"
+    vg: "{{ elasticsearch_data_vg }}"
+    state: present
+  register: vg_creation
+
+- name: Creacion de LV para data de Elasticsearch
+  lvol:
+    vg: "{{ elasticsearch_data_vg }}"
+    lv: fslv01
+    size: 100%FREE
+  when: vg_creation.changed
+
+- name: Crear filesystem en LV de data de Elasticsearch
+  filesystem:
+    fstype: "{{ elasticsearch_data_fs }}"
+    dev: /dev/mapper/{{ elasticsearch_data_vg }}-fslv01
+
+- name: Montar filesystem de data de Elasticsearch
+  mount:
+    path: "{{ elasticsearch_data_path }}"
+    src: /dev/mapper/{{ elasticsearch_data_vg }}-fslv01
+    fstype: "{{ elasticsearch_data_fs }}"
+    state: mounted
+
+- name: Agregar repositorio de Elasticsearch
+  yum_repository:
+    name: elasticsearch-7.x
+    file: elasticsearch
+    description: Elasticsearch repository for 7.x packages
+    baseurl: "{{ elasticsearch_yumrepo_baseurl }}"
+    gpgcheck: yes
+    gpgkey: "{{ elasticsearch_yumrepo_gpgkey }}"
+    enabled: yes
+
+- name: Instalar Elasticsearch
+  yum:
+    name: elasticsearch
+    state: present
+
+- name: Ajustar permisos de directorio de data de Elasticsearch
+  file:
+    path: "{{ elasticsearch_data_path }}"
+    mode: '2750'
+    owner: elasticsearch
+    group: elasticsearch
+
+- name: Configurar directorio de data de Elasticsearch
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^path.data:.*'
+    line: 'path.data: {{ elasticsearch_data_path }}'
+
+- name: Apagar la swap (tuning)
+  command: swapoff -a
+
+- name: Deshabilitar la swap (tuning)
+  replace:
+    path: /etc/fstab
+    regexp: '(^[^#].*swap.*)$'
+    replace: '#\1'
+
+- name: Habilitar bootstrap.memory_lock (tuning)
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: "^bootstrap.memory_lock.*true"
+    line: "bootstrap.memory_lock: true"
+
+- name: Crear directorio de systemd para Elasticsearch
+  file:
+    path: /etc/systemd/system/elasticsearch.service.d
+    state: directory
+
+- name: Crear override de systemd para Elasticsearch
+  template:
+    src: systemd.override.conf
+    dest: /etc/systemd/system/elasticsearch.service.d/override.conf
+  register: systemd_override
+
+- name: Recargar systemd
+  systemd:
+    daemon_reload: yes
+  when: systemd_override.changed
+
+- name: Ajustes de kernel (tuning)
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+  with_items:
+    - { name: vm.swappiness, value: 1 }
+    - { name: vm.max_map_count, value: 262144 }
+
+- name: Ajustes de limits (tuning)
+  template:
+    src: limits.conf.j2
+    dest: /etc/security/limits.conf
+
+- name: Cambiar direccion de escucha de Elasticsearch
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: "^network.host.*0.0.0.0"
+    line: "network.host: 0.0.0.0"
+
+- name: Definir nodos elegibles de Elasticsearch
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: "^cluster.initial_master_nodes.*"
+    line: "cluster.initial_master_nodes: [\"{{ inventory_hostname }}\"]"
+
+- name: Iniciar servicio Elasticsearch
+  service:
+    name: elasticsearch
+    enabled: yes
+    state: restarted
+
+- name: Consultar licencia actual de Elasticsearch
+  uri:
+    url: http://localhost:9200/_license
+    method: GET
+  register: uri_get_result
+
+- name: Activar licencia trial de Elasticsearch
+  uri:
+    url: http://localhost:9200/_license/start_trial?acknowledge=true
+    method: POST
+  register: uri_post_result
+  when: uri_get_result.json.license.type == "basic"

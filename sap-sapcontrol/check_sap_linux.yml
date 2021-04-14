@@ -1,0 +1,40 @@
+---
+- name: Consultando el estado de servicios SAP con el usuario {{ ansible_user_id }}
+  shell: | 
+    source $HOME/.sapenv.sh
+    export INSTNO=$(echo $d | awk '{ print substr($0,length($0)-1,2) }')
+    export ENMSNO=$(expr $INSTNO - 1)
+    DispWork=$(sapcontrol -nr $INSTNO -function GetProcessList | grep work | awk '{ print $4 }' | tr -d ',')
+    MessageServer=$(sapcontrol -nr $ENMSNO -function GetProcessList | grep 'MessageServer' | awk '{ print $4 }' | tr -d ',')
+    EnqueueServer=$(sapcontrol -nr $ENMSNO -function GetProcessList | grep 'EnqueueServer' | awk '{ print $4 }' | tr -d ',')
+    echo "Disp+Work: $DispWork"
+    echo "MessageServer: $MessageServer"
+    echo "EnqueueServer: $EnqueueServer"
+    echo ""
+    if [ $DispWork == "Running" ] && [ $MessageServer == "Running" ] && [ $EnqueueServer == "Running" ]
+    then
+      echo "Resultado: Los servicios de SAP del usuario {{ ansible_user_id }} se encuentran en ejecucion"
+    elif [ $DispWork == "Stopped" ] && [ $MessageServer == "Stopped" ] && [ $EnqueueServer == "Stopped" ]
+    then
+      echo "Resultado: Los servicios de SAP del usuario {{ ansible_user_id }} se encuentran detenidos"
+    else
+      echo "Resultado: Los servicios de SAP del usuario {{ ansible_user_id }} no se encuentran estables. Consulte de nuevo en unos minutos"
+    fi
+  args:
+    executable: /bin/bash
+  register: shell_cmd
+  ignore_errors: yes
+
+- name: Error de ejecucion de script (si aplica)
+  debug:
+    msg:
+      - "{{ shell_cmd.cmd }} : {{ shell_cmd.msg }}"
+  when: shell_cmd.failed
+
+- name: Mostrar salida de error (stderr)
+  debug:
+    msg: "{{ shell_cmd.stderr_lines if shell_cmd.stderr_lines is defined and shell_cmd.stderr_lines != [] else 'No hubo salida de error' }}"
+
+- name: Mostrar salida estandar (stdout)
+  debug:
+    msg: "{{ shell_cmd.stdout_lines if shell_cmd.stdout_lines is defined and shell_cmd.stdout_lines != [] else 'No hubo salida estandar' }}"

@@ -1,0 +1,62 @@
+--- 
+- hosts: all
+  gather_facts: yes 
+  tasks:
+    - include_role:
+        name: canvia.os-basevars
+
+    - include_role:
+        name: canvia.os-update
+
+    - include_role:
+        name: canvia.os-baseline
+
+    - include_role:
+        name: canvia.os-hardening
+
+    - include_role:
+        name: canvia.os-users
+
+    - include_role:
+        name: canvia.os-monitoring 
+ 
+    - name: Cambio de clave en Windows
+      when: ansible_system != "Linux"
+      block:
+      - name: Crear usuario temporal
+        win_user:
+          name: automation
+          password: "{{ new_admin_pass }}"
+          groups:
+            - Administrators
+
+      - name: Cambiarse al usuario temporal
+        set_fact:
+          ansible_user: automation
+          ansible_password: "{{ new_admin_pass }}"
+
+      - name: Cambiar clave de administrator
+        win_user:
+          name: Administrator
+          password: "{{ new_admin_pass }}"
+
+      - name: Cambiarse al usuario administrator de nuevo
+        set_fact:
+          ansible_user: administrator
+          ansible_password: "{{ new_admin_pass }}"
+
+      - name: Eliminar usuario temporal
+        win_user:
+          name: automation
+          state: absent
+
+    - name: Cambiar clave de root
+      when: ansible_system == "Linux"
+      user:
+        name: root
+        password: "{{ new_admin_pass | password_hash('sha512') }}"
+
+    - name: Mostrar clave de usuario generada
+      when: nopass
+      debug:
+        msg: La clave de administrator generada para la imagen es {{ new_admin_pass }}

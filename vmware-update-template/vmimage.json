@@ -1,0 +1,48 @@
+{
+    "sensitive-variables": ["vsphere_user", "vsphere_password", "vsphere_server", "os_adminuser", "os_adminpass"],
+    "builders": [
+        {
+
+
+
+
+            "type":                  "vsphere-clone",
+            "datacenter":            "{{ user `vsphere_datacenter` }}",
+            "vcenter_server":        "{{ user `vmware_server` }}",
+            "username":              "{{ user `vmware_user` }}",
+            "password":              "{{ user `vmware_password` }}",
+            "insecure_connection":   true,
+            "vm_name":               "img_{{ user `vm_name` }}_{{ isotime \"200601021504\" }}",
+            "cluster":               "{{ user `vm_cluster` }}",
+            "folder":                "{{ user `vm_folder` }}",
+            "resource_pool":         "{{ user `vm_resourcepool` }}",
+            "template":              "{{ user `vm_template` }}",
+            "datastore":             "{{ user `vm_datastore` }}",
+            "CPUs":                  "{{ user `vm_cpus` }}",
+            "CPU_limit":             -1,
+            "RAM":                   "{{ user `vm_memory` }}",
+            "RAM_reserve_all":       true,
+            "disk_size":             "{{ user `vm_disksize` }}",
+            "linked_clone":          false,
+            "communicator":          "winrm",
+            "winrm_username":        "{{ user `os_adminuser` }}",
+            "winrm_password":        "{{ user `os_adminpass` }}",
+            "winrm_use_ssl":         true,
+            "winrm_insecure":        true,
+            "convert_to_template":   true
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell-local",
+            "inline":   [
+                "ansible-playbook -i {{ user `os_ipaddr` }}, \\",
+                "-e ansible_user='{{ user `os_adminuser` }}' \\",
+                "-e ansible_password='{{ user `os_adminpass` }}' \\",
+                "-e os_update='{{ user `os_update` }}' \\",
+                "-e os_firstinstall={{ user `os_firstinstall`}} \\",
+                "{{ user `ansible_playbook` }}"
+            ]
+        }
+    ]
+}

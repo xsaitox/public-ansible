@@ -1,0 +1,5 @@
+# Dependencias
+
+* awscli
+* ansible
+* terraform

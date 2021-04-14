@@ -1,0 +1,33 @@
+---
+- name: Capturar estado sealed de Vault
+  register: vault_seal_state
+  shell: vault status -format json | jq -r '.sealed'
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Abrir Vault
+  when: vault_seal_state.stdout == 'true'
+  command: vault operator unseal {{ item }}
+  with_items: "{{ shamir_keys[0:vault_key_threshold] }}"
+  loop_control:
+    index_var: index
+    label: Llave {{ index + 1 }}...
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+
+- name: Esperar que Vault este listo
+  when: vault_storage == 'raft'
+  register: vault_raft_peers
+  command: vault operator raft list-peers
+  retries: 30
+  delay: 2
+  no_log: no
+  failed_when: vault_raft_peers.rc not in [0,2]
+  until: vault_raft_peers.rc == 0
+  environment:
+    PATH: "{{ vault_bin_dir }}:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_token }}"
+

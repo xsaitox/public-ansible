@@ -1,0 +1,8 @@
+---
+smbinst_share: //10.0.5.24/Estandares
+smbinst_user: arengifoc
+smbinst_domain: urano
+smbinst_pass: Sistemas123$
+firewall_enabled: False
+ssh_password_authentication: ["yes"]
+ssh_permit_root_login: ["yes"]

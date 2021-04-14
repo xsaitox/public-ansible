@@ -1,0 +1,123 @@
+---
+- name: Configuracion publica de perfil de red
+  win_shell: |
+    $NetworkName = (Get-NetConnectionProfile).Name
+    Set-NetConnectionProfile -Name $NetworkName -NetworkCategory Public
+
+- name: Re-escaneo de disco de SO
+  win_shell: |
+    "rescan" | diskpart
+
+- name: Inicializacion y formateo de disco de paginacion
+  win_shell: |
+    Try {
+      Get-Partition -DiskNumber 1 -ErrorAction Stop |
+      ForEach-Object {
+        Remove-Partition -PartitionNumber $_.PartitionNumber -DiskNumber 1 -Confirm:$false
+      }
+      Clear-Disk -Number 1 -Confirm:$false
+    }
+    Catch { Write-Host "Disco no inicializado" }
+    Initialize-Disk -Number 1
+    New-Partition -AssignDriveLetter -UseMaximumSize -DiskNumber 1 | Format-Volume -Confirm:$false -NewFileSystemLabel "PAGEFILE"
+
+- name: Recopilar informacion de discos y particiones
+  win_disk_facts:
+
+- name: Recoger datos de disco de paginacion
+  set_fact:
+    page_disk: "{{ ansible_disks | selectattr('physical_disk.device_id', 'equalto', '1') | first }}"
+
+- name: Configurar paginacion en disco dedicado
+  win_pagefile:
+    drive: "{{ page_disk.partitions[1].drive_letter }}"
+    test_path: no
+    initial_size: 1024
+    maximum_size: "{{ page_disk.physical_disk.size / 1048576 | int }}"
+    state: present
+
+- name: Configurar paginacion en disco C
+  win_pagefile:
+    drive: C
+    initial_size: 2048
+    maximum_size: 2048
+    override: no
+    state: present
+
+- name: Filtrar disco de sistema operativo
+  set_fact:
+    os_disk: "{{ ansible_disks | selectattr('physical_disk.device_id', 'equalto', '0') | first }}"
+
+- name: Filtrar unidad C de disco de sistema operativo
+  set_fact:
+    drive_c: "{{ os_disk.partitions | selectattr('drive_letter', 'equalto', 'C') | first }}"
+
+- name: Extender disco de sistema operativo
+  win_partition:
+    disk_number: 0
+    partition_number: "{{ drive_c.number }}"
+    partition_size: -1
+
+- name: Formateo de discos de data
+  win_shell: |
+    Try {
+      Get-Partition -DiskNumber {{ item.number }} -ErrorAction Stop |
+      ForEach-Object {
+        Remove-Partition -PartitionNumber $_.PartitionNumber -DiskNumber {{ item.number }} -Confirm:$false
+      }
+      Clear-Disk -Number {{ item.number }} -Confirm:$false
+    }
+    Catch { Write-Host "Disco no inicializado" }
+    Initialize-Disk -Number {{ item.number }}
+    New-Partition -AssignDriveLetter -UseMaximumSize -DiskNumber {{ item.number }} | Format-Volume -Confirm:$false -NewFileSystemLabel "DATA{{ item.number - 1 }}" -AllocationUnitSize 65536
+  when: item.number > 1
+  with_items: "{{ ansible_disks }}"
+  loop_control:
+    label: "Disco {{ item.number }}"
+
+- name: Configuracion y sincronizacion de hora por NTP
+  when: os_ntpserver is defined and os_ntpserver != ""
+  block:
+    - name: Iniciar servicio NTP
+      win_service:
+        name: w32time
+        state: started
+        start_mode: auto
+
+    - name: Ajustar hora via NTP
+      win_command: w32tm /config /manualpeerlist:"{{ os_ntpserver }}" /reliable:yes /update
+
+- name: Configuracion de agente de monitoreo
+  when: os_pandoraserverip is defined and os_pandoraserverip != ""
+  block:
+    - name: Modificar configuracion de Pandora
+      template:
+        src: templates/windows_pandora_agent.conf
+        dest: C:\Program Files\pandora_agent\pandora_agent.conf
+
+    - name: Iniciar agente Pandora
+      win_service:
+        name: PandoraFMSAgent
+        start_mode: auto
+        state: restarted
+
+- name: Activacion de Windows
+  when:
+    os_productkey is defined and
+    os_activation is defined and
+    (os_activation == True or os_activation == "yes")
+  block:
+    - name: Registro de product key de Windows
+      when:
+      win_shell: cscript slmgr.vbs /ipk {{ os_productkey }}
+      args:
+        chdir: C:\Windows\system32
+
+    - name: Activacion de Windows
+      win_shell: cscript slmgr.vbs /ato
+      args:
+        chdir: C:\Windows\system32
+
+    - name: Reinicio de Windows
+      win_reboot:
+        reboot_timeout: 900

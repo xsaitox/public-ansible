@@ -1,0 +1,19 @@
+- name: Wait for Vault to become ready
+  shell: |
+    . /etc/profile
+    vault status -format json
+  failed_when: vault_status.rc not in [0,2]
+  until: (vault_status.stdout | from_json)['initialized']
+  retries: 30
+  delay: 1
+  register: vault_status
+
+- name: Unseal Vault
+  shell: |
+    . /etc/profile
+    vault operator unseal {{ item }}
+  with_items: "{{ hostvars[groups['vault'][0]].vault_init_keys[0:3] }}"
+  when: hostvars[groups['vault'][0]].vault_init_keys is defined
+  loop_control:
+    index_var: index
+    label: Key {{ index+1 }}...

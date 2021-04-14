@@ -1,0 +1,27 @@
+- name: Linux
+  block:
+    - name: Crear llave temporal para el EC2
+      ec2_key:
+        name: "key_temp_{{  var_job  }}"
+        region: "{{  ec2_region  }}"
+      register: output_ec2_key
+
+    - name: Guardar llave
+      shell: echo "{{  output_ec2_key.key.private_key  }}" >> "{{ var_job }}/key.pem"
+  when: so_type == "Linux"
+
+- name: Crear archivo de terraform de la VM desde la plantilla
+  template:
+    src: "../templates/main.tf.j2"
+    dest: "{{ var_job  }}/main.tf"
+
+- name: Crear VM
+  terraform:
+    project_path: "{{ var_job }}"
+    state: present
+    force_init: true
+  register: terraform
+
+- name: Obtener IP
+  set_fact:
+    dynamic_public: "{{  terraform.outputs.instance_ip.value  }}"

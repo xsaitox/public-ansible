@@ -1,0 +1,115 @@
+--- 
+- name: Incluir variables necesarias 
+  include_vars: vars/main.yml 
+ 
+- name: Buscar credenciales de vCenter 
+  set_fact: 
+    vmware_host: "{{ lookup('env','VMWARE_HOST') }}" 
+    vmware_user: "{{ lookup('env','VMWARE_USER') }}" 
+    vmware_password: "{{ lookup('env','VMWARE_PASSWORD') }}" 
+ 
+- name: Abortar si no estan definidas las variables de entorno de VMware 
+  fail: 
+    msg: No se ha definido una o mas de las variables de entorno requeridas':' VMWARE_HOST, VMWARE_USER, VMWARE_PASSWORD 
+  when: 
+      vmware_host == "" or vmware_host is not defined or 
+      vmware_user == "" or vmware_user is not defined or 
+      vmware_password == "" or vmware_password is not defined 
+ 
+- name: Generar string aleatorio 
+  shell: date +%s | md5sum | awk '{ print $1 }' 
+  register: random_name 
+ 
+- name: Filtrar variables de mappings 
+  set_fact: 
+    desired_vmware: "{{ vmware_data | selectattr('host','equalto', vmware_host) | first }}" 
+    desired_os: "{{ os_data | selectattr('short_name','equalto', os_version) | first }}" 
+ 
+- name: Definicion de variables diversas 
+  set_fact: 
+    vsphere_datacenter: "{{ desired_vmware.dc }}" 
+    vm_datastore: "{{ desired_vmware.datastore }}" 
+    vm_folder: "{{ vm_folder | regex_replace('>','/') }}" 
+    os_adminuser: "{{ desired_os.admin_user }}" 
+    vm_ostype: "{{ desired_os.os_type }}" 
+    os_vlan: "{{ vm_network | regex_replace('(^[^0-9]*)([0-9]{2,})$', '\\2') }}" 
+    tmpjob: "{{ random_name.stdout }}" 
+ 
+- name: Crear directorio de trabajo 
+  file: 
+    path: "{{ item }}" 
+    state: directory 
+  with_items: 
+    - "{{ tmpjob }}" 
+    - group_vars 
+     
+- name: Definir variable de red LAN 
+  set_fact: 
+    vm_networks: [{'name': '{{ vm_network }}','type': 'static','vlan': '{{ os_vlan }}','ip': '{{ os_ipaddr }}','netmask': '{{ os_netmask }}','gateway': '{{ os_gateway }}'}] 
+     
+- name: Definir variable de red Backups 
+  set_fact: 
+    os_bkpvlan: "{{ vm_bkpnetwork | regex_replace('(^[^0-9]*)([0-9]{2,})$', '\\2') }}" 
+    vm_networks: "{{ vm_networks + [{'name': vm_bkpnetwork,'type': 'static','vlan': os_bkpvlan,'ip': os_bkpipaddr,'netmask': os_bkpnetmask}] }}" 
+  when: 
+    vm_bkpnetwork is defined and 
+    os_bkpipaddr is defined and 
+    os_bkpnetmask is defined 
+ 
+- name: Obtener template más reciente de {{ os_version }} 
+  shell: ./files/list-templates.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} img_{{ os_version }} 
+  register: template_filter 
+ 
+- name: Registrar nombre de template mas reciente 
+  set_fact: 
+    vm_template: "{{ template_filter.stdout }}" 
+ 
+- name: Obtener informacion de template {{ vm_template }} 
+  vmware_guest_disk_facts: 
+    hostname:             "{{ vmware_host }}" 
+    username:             "{{ vmware_user }}" 
+    password:             "{{ vmware_password }}" 
+    datacenter:           "{{ vsphere_datacenter }}" 
+    validate_certs:       no 
+    name:                 "{{ vm_template }}" 
+  register: template_info 
+ 
+- name: Definicion de variables de disco 
+  set_fact: 
+    os_disk: "{{ (template_info.guest_disk_facts['0'].capacity_in_kb / 1048576) | int }}" 
+- set_fact: 
+    vm_disks: [{'size_gb': '{{ os_disk }}', 'type': 'None'}, {'size_gb': '{{ vm_paging }}', 'type': 'None'}] 
+ 
+- name: Definir lista de discos adicionales 
+  set_fact: 
+    vm_disks: "{{ vm_disks + [{'size_gb': (item|int), 'type': 'None'}] }}" 
+  with_items: "{{ vm_extradisks.split() }}" 
+  when: vm_extradisks is defined 
+ 
+- name: Generar contraseña aleatoria 
+  shell: openssl rand -base64 12 
+  register: random_pass 
+ 
+- name: Definir la clave de administrador 
+  set_fact:  
+    os_adminpass: "{{ random_pass.stdout }}" 
+ 
+- name: Guardar contraseña generada en un archivo txt 
+  copy: 
+    content: "VM: {{ vm_name }}\nHostname: {{ os_hostname }}\nIP: {{ os_ipaddr }}\nUsuario: {{ os_adminuser }}\nPassword: {{ os_adminpass }}" 
+    dest: "{{ tmpjob }}/{{ adminpass_file }}" 
+ 
+- name: Modificar salto de linea de archivo a formato Windows 
+  command: todos {{ adminpass_file }} 
+  args: 
+    chdir: "{{ tmpjob }}" 
+ 
+- name: Comprimir el txt y asignarle una contraseña  
+  command: zip -P {{ zip_pass }} {{ adminpass_zipfile }} {{ adminpass_file }} 
+  args: 
+    chdir: "{{ tmpjob }}" 
+ 
+- name: Creacion de variables de host 
+  template: 
+    src: templates/groupvars.j2 
+    dest: group_vars/{{ tmpjob }} 

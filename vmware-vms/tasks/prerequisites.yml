@@ -1,0 +1,172 @@
+---
+- name: Validacion de parametros de vCenter
+  assert:
+    that:
+        - linux_cluster is defined
+        - windows_cluster is defined
+        - template_folder is defined
+        - vm_datastore is defined
+        - vm_folder is defined
+        - vm_resourcepool is defined
+        - vmware_host is defined
+        - vmware_user is defined
+        - vmware_password is defined
+        - vsphere_datacenter is defined
+    fail_msg: No se ha definido parametros de vCenter asociado a esta ejecucion
+    success_msg: Validacion exitosa de variables necesarias
+
+- name: Validacion ICMP a host {{ os_ipaddr }}
+  command: ping -c 1 {{ os_ipaddr }} 
+  register: icmp_result
+  failed_when: 1 == 2
+
+- name: Validacion de puerto SSH abierto a host {{ os_ipaddr }}
+  wait_for:
+    host: "{{ os_ipaddr }}"
+    port: 22
+    timeout: 1
+  when: icmp_result.rc == 1
+  register: ssh_port_result
+  failed_when: 1 == 2
+
+- name: Validacion de puerto RDP abierto a host {{ os_ipaddr }}
+  wait_for:
+    host: "{{ os_ipaddr }}"
+    port: 3389
+    timeout: 1
+  when: icmp_result.rc == 1 and ssh_port_result.msg is defined
+  register: rdp_port_result
+  failed_when: 1 == 2
+
+- name: Determinacion final de estado de host {{ os_ipaddr }} en la red
+  assert:
+    that:
+      - icmp_result.rc == 1
+      - ssh_port_result is defined
+      - ssh_port_result.msg is defined
+      - rdp_port_result is defined
+      - rdp_port_result.msg is defined
+    fail_msg: Host {{ os_ipaddr }} esta online y su IP no esta libre para usarse. Abortado
+    success_msg: Host {{ os_ipaddr }} esta offline y su IP esta libre para usarse
+
+- name: Incluir variables necesarias
+  include_vars: vars/main.yml
+
+- name: Generar string aleatorio
+  shell: date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' '0lzeAsgtBa' | cut -c 1-12
+  register: random_name
+
+- name: Filtrar variables de mappings
+  set_fact:
+    desired_os: "{{ os_data | selectattr('short_name','equalto', os_version) | first }}"
+
+- name: Definir familia de SO
+  set_fact:
+    os: "{{ 'windows' if os_version | regex_search('win', ignorecase=True) else 'linux' }}"
+
+- name: Definicion de variables diversas
+  set_fact:
+    os_adminuser: "{{ 'administrator' if os == 'windows' else 'root' }}"
+    vm_ostype: "{{ desired_os.os_type }}"
+    os_vlan: "{{ vm_network | regex_replace('(^[^0-9]*)([0-9]{2,})$', '\\2') }}"
+    tmpjob: "{{ random_name.stdout }}"
+    vm_cluster: "{{ windows_cluster if os == 'windows' else linux_cluster }}"
+
+- name: Crear directorio de trabajo
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ tmpjob }}"
+    - group_vars
+    
+- name: Definir variable de red LAN
+  set_fact:
+    vm_networks: [{'name': '{{ vm_network }}', 'type': 'static', 'device_type': 'vmxnet3', 'vlan': '{{ os_vlan }}','ip': '{{ os_ipaddr }}','netmask': '{{ os_netmask }}','gateway': '{{ os_gateway }}'}]
+    
+- name: Definir variable de red Backups
+  set_fact:
+    os_bkpvlan: "{{ vm_bkpnetwork | regex_replace('(^[^0-9]*)([0-9]{2,})$', '\\2') }}"
+  when:
+    - vm_bkpnetwork is defined
+    - vm_bkpnetwork != None
+    - vm_bkpnetwork != ""
+    - os_bkpipaddr is defined
+    - os_bkpipaddr != None
+    - os_bkpipaddr != ""
+    - os_bkpnetmask is defined
+    - os_bkpnetmask != None
+    - os_bkpnetmask != ""
+
+- name: Consolidar variable de redes LAN y Backups
+  set_fact:
+    vm_networks: "{{ vm_networks + [{'name': vm_bkpnetwork, 'type': 'static', 'device_type': 'vmxnet3', 'vlan': os_bkpvlan, 'ip': os_bkpipaddr, 'netmask': os_bkpnetmask}] }}"
+  when:
+    - os_bkpvlan is defined
+#- vm_bkpnetwork is defined
+#- os_bkpipaddr is defined
+#- os_bkpnetmask is defined
+
+- name: Obtener template más reciente de {{ os_version }}
+  shell: ./files/list-templates.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} img_{{ os_version }}_
+  register: template_filter
+
+- name: Registrar nombre de template mas reciente
+  set_fact:
+    vm_template: "{{ template_filter.stdout }}"
+
+- name: Abortar al no haberse encontrado templates de {{ os_version }}
+  fail:
+    msg: No se encontro ningun template disponible de {{ os_version }}
+  when: vm_template == ""
+
+- name: Informar del template elegido
+  debug:
+    msg: Se encontro {{ vm_template }} como el template mas reciente de {{ os_version }}
+
+- name: Obtener informacion de template {{ vm_template }}
+  vmware_guest_disk_facts:
+    hostname: "{{ vmware_host }}"
+    username: "{{ vmware_user }}"
+    password: "{{ vmware_password }}"
+    datacenter: "{{ vsphere_datacenter }}"
+    validate_certs: no
+    name: "{{ vm_template }}"
+  register: template_info
+
+- name: Definicion de variables de disco
+  set_fact:
+    os_disk: "{{ (template_info.guest_disk_facts['0'].capacity_in_kb / 1048576) | int }}"
+
+- set_fact:
+    vm_disks: [{'size_gb': '{{ os_disk }}', 'type': 'None'}, {'size_gb': '{{ (vm_memory*1.5) | int }}', 'type': 'None'}]
+
+- name: Definir lista de discos adicionales
+  set_fact:
+    vm_disks: "{{ vm_disks + [{'size_gb': (item|int), 'type': 'None'}] }}"
+  with_items: "{{ vm_extradisks if vm_extradisks is number else vm_extradisks.split() }}"
+  when: vm_extradisks is defined
+
+- name: Generar contraseña aleatoria
+  command: pwgen --capitalize --numerals --symbols --secure --remove-chars "^~{}@'\"\`*\\[]+#<>=" -1 30 1
+  register: random_pass
+
+- name: Definir la clave de administrador
+  set_fact: 
+    os_newadminpass: "{{ random_pass.stdout }}"
+
+- name: Guardar contraseña generada en un archivo txt
+  template:
+    src: ../templates/credenciales.txt.j2
+    dest: "{{ tmpjob }}/credenciales.txt"
+    newline_sequence: '\r\n'
+
+- name: Comprimir el txt y asignarle una contraseña 
+  command: zip -P {{ zip_pass }} credenciales.zip credenciales.txt
+  args:
+    chdir: "{{ tmpjob }}"
+
+- name: Creacion de variables de host
+  template:
+    src: templates/groupvars.j2
+    dest: group_vars/{{ tmpjob }}

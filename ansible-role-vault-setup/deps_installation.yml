@@ -1,0 +1,39 @@
+- name: Look for dnf
+  command: which dnf
+  changed_when: False
+  failed_when: False
+  register: stat_dnf
+
+- name: Look for yum
+  command: which yum
+  changed_when: False
+  failed_when: False
+  register: stat_yum
+
+- name: Install epel-release (Red Hat based distros)
+  yum:
+    name: epel-release
+    state: present
+  when:
+    - stat_dnf.rc == 0 or stat_yum.rc == 0
+    - ansible_distribution is defined
+    - ansible_distribution == "CentOS"
+
+- name: Install dependencies (Red Hat based distros)
+  yum:
+    name: "{{ yum_dependencies }}"
+    state: present
+  when: stat_dnf.rc == 0 or stat_yum.rc == 0
+
+- name: Look for apt-get
+  shell: which apt-get
+  changed_when: False
+  failed_when: False
+  register: stat_apt
+
+- name: Install dependencies (Debian based distros)
+  apt:
+    name: "{{ apt_dependencies }}"
+    state: present
+    update_cache: yes
+  when: stat_apt.rc == 0

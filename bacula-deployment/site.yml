@@ -1,0 +1,23 @@
+---
+- hosts: localhost
+  connection: local
+  become: yes
+  tasks:
+    - name: Tareas dependientes de entorno AWS
+      when:
+        - parameter_name is defined
+        - region is defined
+      block:
+        - name: Obtener secreto de SSM
+          shell: |
+            set -o pipefail
+            aws --region {{ region }} ssm get-parameter --name {{ parameter_name }} --with-decryption | jq -r '.Parameter.Value'
+          register: ssm_execution
+
+        - name: Guardar en variable el secreto obtenido de SSM
+          set_fact:
+            db_password: "{{ ssm_execution.stdout }}"
+            
+    - name: Invocar rol de despliegue de Bacula
+      include_role:
+        name: app-bacula-server

@@ -1,0 +1,10 @@
+---
+- name: Instalar software esencial en Amazon 2
+  yum:
+    name: "{{ linux_amazon2_packages }}"
+    state: present
+
+- name: Remover software innecesario
+  yum:
+    name: libvirt-daemon
+    state: absent

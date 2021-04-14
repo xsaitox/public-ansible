@@ -1,0 +1,30 @@
+---
+# defaults file for arengifoc.elk
+base_packages: ['lvm2','libselinux-python','yum-utils','device-mapper-persistent-data','epel-release']
+
+elasticsearch_yumrepo_baseurl: https://artifacts.elastic.co/packages/7.x/yum
+elasticsearch_yumrepo_gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+elasticsearch_data_disk: /dev/sdb
+elasticsearch_data_vg: datavg
+elasticsearch_data_path: /elasticdata
+elasticsearch_data_fs: ext4
+elasticsearch_max_file_descriptors: 65535
+elasticsearch_max_num_processes: 4096
+
+docker_yumrepo_baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+docker_yumrepo_gpgkey: https://download.docker.com/linux/centos/gpg
+docker_packages: ['docker-ce','docker-ce-cli','containerd.io']
+docker_data_disk: /dev/sdb
+docker_data_vg: dockerstgvg
+docker_data_path: /var/lib/docker/volumes
+docker_data_fs: ext4
+
+kibana_packages: ['python2-pip']
+kibana_version: 7.4.2
+kibana_docker_repo: docker.elastic.co/kibana/kibana
+
+logstash_packages: ['python2-pip']
+logstash_version: 7.4.2
+logstash_docker_repo: docker.elastic.co/logstash/logstash
+
+maven_packages: ['maven']

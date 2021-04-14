@@ -1,0 +1,42 @@
+listener "tcp" {
+  address         = "0.0.0.0:{{ vault_address }}"
+  cluster_address = "{{ ansible_host }}:{{ vault_cluster_address }}"
+  tls_disable     = {{ tls_disable }}
+{% if tls_disable == "0" %}
+  tls_cert_file = "{{ vault_config_dir }}/{{ server_cert_file | basename }}"
+  tls_key_file = "{{ vault_config_dir }}/{{ server_key_file | basename }}"
+  tls_min_version = "tls12"
+  tls_disable_client_certs = "true"
+{% endif %}
+}
+
+storage "raft" {
+  path       = "{{ vault_data_dir }}"
+  node_id    = "{{ inventory_hostname }}"
+{% for node in groups['vault'] %}
+{% if tls_disable == "0" %}
+  retry_join {
+    leader_api_addr = "{{ vault_protocol }}://{{ node }}.{{ ((server_cert_info.subject.commonName).split('.')[1:] | join('.')) }}:{{ vault_address }}"
+  }
+{% else %}
+  retry_join {
+    leader_api_addr = "{{ vault_protocol }}://{{ node }}:{{ vault_address }}"
+  }
+{% endif %}
+{% endfor %}
+}
+
+{% if aws_region is not none and aws_region | default("") | replace(' ','') | length > 8 and aws_access_key is not none and aws_access_key | default("") | replace(' ','') | length > 8 and aws_secret_key is not none and aws_secret_key | default("") | replace(' ','') | length > 8 and aws_kms_key_id is not none and aws_kms_key_id | default("") | replace(' ','') | length > 8 %}
+
+seal "awskms" {
+  region     = "{{ aws_region }}"
+  access_key = "{{ aws_access_key }}"
+  secret_key = "{{ aws_secret_key }}"
+  kms_key_id = "{{ aws_kms_key_id }}"
+}
+{% endif %}
+
+pid_file = "{{ vault_runtime_dir }}/vault.pid"
+api_addr = "{{ vault_protocol }}://{{ ansible_host }}:{{ vault_address }}"
+cluster_addr = "https://{{ ansible_host }}:{{ vault_cluster_address }}"
+ui = {{ 'true' if vault_ui_enabled == True else 'false' }}

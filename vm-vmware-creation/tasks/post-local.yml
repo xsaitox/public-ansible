@@ -1,0 +1,31 @@
+---
+- name: Personalizar la maquina virtual con las best practices
+  command: ./files/vm-reconfig.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} {{ vm_datastore }} {{ vm_name }} "SKIP"
+  register: vm_reconfig
+
+- name: Resultado de personalizacion de VM
+  debug:
+    msg: "{{ vm_reconfig.stdout_lines }}"
+
+- name: Enviar por correo la clave de administrador
+  mail:
+    host: "{{ smtp_server }}"
+    port: 25
+    from: "{{ mail_from }}"
+    to: "{{ mail_to }}"
+    subject: "{{ mail_subject }}"
+    body: "{{ mail_body }}"
+    attach:
+      - "{{ tmpjob }}/{{ adminpass_zipfile }}"
+  run_once: yes
+
+- name: Remover archivos y roles temporales
+  file:
+    state: absent
+    path: "{{ item }}"
+  with_items:
+    - "{{ tmpjob }}"
+    - group_vars/{{ tmpjob }}
+    - roles/canvia.os-basevars
+    - roles/canvia.os-customization
+    - roles/canvia.os-antivirus

@@ -1,0 +1,43 @@
+---
+- name: Instalar paquetes requeridos para Bacula GUI
+  yum:
+    name: "{{ packages_for_gui }}"
+    state: present
+
+- name: Ajustar configuracion de memoria en PHP
+  lineinfile:
+    path: /etc/php.ini
+    state: present
+    regexp: "^memory_limit.*{{ php_mem_limit }}"
+    line: "memory_limit = {{ php_mem_limit }}"
+
+- name: Ajustar configuracion de zona horaria en PHP
+  lineinfile:
+    path: /etc/php.ini
+    state: present
+    regexp: "^date.timezone.*{{ timezone }}"
+    line: "date.timezone = {{ timezone }}"
+
+- name: Configuracion de sudo para Apache httpd
+  template:
+    src: templates/baculum-sudoers
+    dest: /etc/sudoers.d/apache
+    validate: '/usr/sbin/visudo -cf %s'
+
+- name: Descargar Bacula
+  get_url:
+    url: "{{ baculum_url }}"
+    dest: /tmp/baculum.tar.gz
+    mode: 0644
+
+- name: Extraer contenido de tarball de Bacula en /tmp
+  unarchive:
+    src: /tmp/baculum.tar.gz
+    dest: /tmp
+    remote_src: yes
+    creates: /var/www/html/README
+    # extra_opts: [--strip-components=2 --wildcards='*baculum*']
+
+# - name: Copiar contenido de Baculum a directorio de Apache httpd
+#   copy:
+#     src: /tmp/

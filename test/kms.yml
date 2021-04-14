@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - aws_kms_facts:
+        region: us-east-1
+        filters:
+          alias: key-arengifoc
+      register: aws_kms
+
+    - set_fact:
+        valor: "{{ aws_kms.keys }}"
+    - debug: var=valor

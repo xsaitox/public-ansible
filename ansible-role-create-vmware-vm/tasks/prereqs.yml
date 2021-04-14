@@ -1,0 +1,74 @@
+---
+- name: Check for required variables
+  assert:
+    that:
+      - cluster is defined
+      - cluster != ""
+      - vm_template is defined
+      - vm_template != ""
+      - vm_datastore is defined
+      - vm_datastore != ""
+      - vm_folder is defined
+      - vm_folder != ""
+      - vcenter_username is defined
+      - vcenter_username != ""
+      - vcenter_password is defined
+      - vcenter_password != ""
+      - vcenter_hostname is defined
+      - vcenter_hostname != ""
+      - datacenter is defined
+      - datacenter != ""
+      - vm_memory is defined
+      - vm_memory != ""
+      - vm_cpus is defined
+      - vm_cpus != ""
+      - vm_networks is defined
+      - vm_networks != ""
+      - os_hostname is defined
+      - os_hostname != ""
+      - vm_state is defined
+      - vm_state != ""
+    quiet: yes
+    fail_msg: One or more variables failed validation
+
+- when:
+    - os_ipaddr is defined
+    - os_ipaddr != ""
+  block:
+    - name: Check {{ os_ipaddr }} is available through ICMP test
+      command: ping -c 1 {{ os_ipaddr }}
+      register: result_icmp_test
+      failed_when: False
+
+    - name: Check {{ os_ipaddr }} is available through SSH test
+      wait_for:
+        host: "{{ os_ipaddr }}"
+        port: 22
+        timeout: 1
+      register: result_ssh_test
+      failed_when: False
+      when:
+        - result_icmp_test.rc is defined
+        - result_icmp_test.rc == 1
+
+    - name: Check {{ os_ipaddr }} is available through RDP test
+      wait_for:
+        host: "{{ os_ipaddr }}"
+        port: 3389
+        timeout: 5
+      register: result_rdp_test
+      failed_when: False
+      when:
+        - result_icmp_test.rc == 1
+        - result_ssh_test.msg is defined
+
+    - name: Determine availability of {{ os_ipaddr }} based on previous tests
+      assert:
+        that:
+          - result_icmp_test.rc == 1
+          - result_ssh_test is defined
+          - result_ssh_test.msg is defined
+          - result_rdp_test is defined
+          - result_rdp_test.msg is defined
+        quiet: yes
+        fail_msg: Host {{ os_ipaddr }} is online, so this IP address cannot be used. Aborting.

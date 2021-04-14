@@ -1,0 +1,16 @@
+---
+- name: Crear configuracion de consul {{ consul_role }}
+  template:
+    src: templates/consul-{{ consul_role }}.json.j2
+    dest: "{{ consul_config_dir }}/{{ consul_config_filename}}"
+    mode: 0640
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+  register: consul_config
+
+- name: Reiniciar servicio consul
+  service:
+    name: consul
+    state: restarted
+    enabled: yes
+  when: consul_config.changed

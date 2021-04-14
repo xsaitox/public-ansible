@@ -1,0 +1,10 @@
+---
+minpasslen: 8
+passhistsize: 6
+maxpassage: 90
+minpassage: 1
+passwarnage: 7
+passmaxclassrepeat: 3
+lockoutbadcount: 5
+lockoutduration: 30
+inactivitylogout: 900

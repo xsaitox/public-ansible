@@ -1,0 +1,17 @@
+vpcs:
+  - vpc_subnet_name: VPC-Genesys_pub-subnet-1
+    vpc_id: "vpc-0375462acb82279df"
+    subnet_id: "subnet-0f16c38f71b3f0fb7"
+  - vpc_subnet_name: VPC-Genesys_pub-subnet-2
+    vpc_id: "vpc-0375462acb82279df"
+    subnet_id: "subnet-050701a6125456151"
+  - vpc_subnet_name: VPC-Genesys_pub-subnet-3
+    vpc_id: "vpc-0375462acb82279df"
+    subnet_id: "subnet-02dc0b2350f5b252c"
+
+  - vpc_subnet_name: VPC-Default_default-pub-1
+    vpc_id: "vpc-0bbe1a613762350f2"
+    subnet_id: "subnet-08638a17ce1bb5e9f"
+  - vpc_subnet_name: VPC-Default_default-pub-2
+    vpc_id: "vpc-0bbe1a613762350f2"
+    subnet_id: "subnet-04d1f317694d2fcda"

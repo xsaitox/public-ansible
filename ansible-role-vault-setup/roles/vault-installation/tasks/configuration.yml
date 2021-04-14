@@ -1,0 +1,147 @@
+---
+- name: Change system hostname
+  when: change_hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Check for TLS variables
+  set_fact:
+    tls_disable: "{{ '0' if (ca_cert_file is defined or server_cert_file is defined or server_key_file is defined) else '1' }}"
+
+- name: Set Vault protocol variable (HTTP/HTTPS)
+  set_fact:
+    vault_protocol: "{{ 'http' if tls_disable == '1' else 'https' }}"
+
+- name: Copy TLS certificate and key files
+  when: tls_disable == "0"
+  copy:
+    dest: "{{ vault_config_dir }}"
+    src: "{{ item }}"
+    mode: 0400
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+  with_items:
+    - "{{ server_cert_file }}"
+    - "{{ server_key_file }}"
+
+- name: Get Common Name from TLS certificate
+  when:
+    - tls_disable == "0"
+  register: server_cert_info
+  openssl_certificate_info:
+    path: "{{ vault_config_dir }}/{{ server_cert_file | basename }}"
+
+- name: Set Vault address variable
+  set_fact:
+    vault_addr: '{{ vault_protocol }}://{{ vault_hostname if tls_disable != "0" else server_cert_info.subject.commonName | replace("*", inventory_hostname) }}:8200'
+
+- name: Register Common Name from TLS certificate in /etc/hosts (if TLS enabled)
+  when: tls_disable == "0"
+  lineinfile:
+    path: /etc/hosts
+    backup: yes
+    state: present
+    regexp: '^(127.0.0.1(\s+(?!{{ server_cert_info.subject.commonName | replace("*", inventory_hostname) }})[\w\-_\.]+)*)'
+    line: '\1 {{ server_cert_info.subject.commonName | replace("*", inventory_hostname) }}'
+    backrefs: yes
+
+- name: Register Vault node names in /etc/hosts (if TLS enabled)
+  when: tls_disable == "0"
+  lineinfile:
+    path: /etc/hosts
+    backup: yes
+    state: present
+    regexp: '^{{ hostvars[item].ansible_host }}.*{{ item }}.{{ (server_cert_info.subject.commonName).split(".")[1:] | join(".") }}'
+    line: '{{ hostvars[item].ansible_host }} {{ item }}.{{ (server_cert_info.subject.commonName).split(".")[1:] | join(".") }}'
+  with_items: "{{ groups['vault'] }}"
+
+- name: Register Vault node names in /etc/hosts (if TLS disabled)
+  when: tls_disable != "0"
+  lineinfile:
+    path: /etc/hosts
+    backup: yes
+    state: present
+    regexp: '^{{ hostvars[item].ansible_host }}.*{{ item }}'
+    line: '{{ hostvars[item].ansible_host }} {{ item }}'
+  with_items: "{{ groups['vault'] }}"
+
+- name: Install CA certificate locally (Red Hat based distros)
+  when:
+    - tls_disable == "0"
+    - ansible_os_family == 'RedHat'
+  register: caroot_install
+  copy:
+    src: "{{ ca_cert_file }}"
+    dest: /etc/pki/ca-trust/source/anchors/{{ (ca_cert_file | basename | splitext)[:-1] | join('.') }}.crt
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Install CA certificate locally (Debian based distros)
+  when:
+    - tls_disable == "0"
+    - ansible_os_family == 'Debian'
+  register: caroot_install
+  copy:
+    src: "{{ ca_cert_file }}"
+    dest: /usr/local/share/ca-certificates/{{ (ca_cert_file | basename | splitext)[:-1] | join('.') }}.crt
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Update list of local certificates (Red Hat based distros)
+  when:
+    - tls_disable == "0"
+    - ansible_os_family == 'RedHat'
+  command: update-ca-trust
+
+- name: Update list of local certificates (Debian based distros)
+  when:
+    - caroot_install.changed
+    - ansible_os_family == 'Debian'
+  command: update-ca-certificates
+
+- name: Create Vault configuration
+  template:
+    src: templates/config.hcl.j2
+    dest: "{{ vault_config_dir }}/{{ vault_config_filename }}"
+    mode: 0640
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+  register: vault_config
+
+- name: Make Vault variables permanent
+  lineinfile:
+    path: /etc/profile
+    regexp: "^export.*VAULT_ADDR"
+    line: "export VAULT_ADDR={{ vault_addr }}"
+
+- name: Restart Vault service
+  service:
+    name: vault
+    state: restarted
+    enabled: yes
+  when: vault_config.changed
+
+- name: Disable history of Vault commands
+  lineinfile:
+    path: /etc/profile
+    regexp: '^export.*HISTIGNORE'
+    line: 'export HISTIGNORE="&:vault*"'
+
+- name: Configure logrotate for Vault audit logs
+  template:
+    src: templates/logrotate-vault
+    dest: /etc/logrotate.d/vault
+    mode: 0640
+    owner: root
+    group: root
+
+- name: Turn off system swap
+  command: swapoff -a
+
+- name: Disable system swap
+  replace:
+    path: /etc/fstab
+    regexp: '(^[^#].*swap.*)$'
+    replace: '#\1'

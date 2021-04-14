@@ -1,0 +1,10 @@
+--- 
+- hosts: all 
+  gather_facts: yes 
+  roles: 
+    - canvia.os-basevars 
+    - canvia.os-update 
+    - canvia.os-baseline 
+    - canvia.os-hardening 
+    - canvia.os-users 
+    - canvia.os-monitoring 

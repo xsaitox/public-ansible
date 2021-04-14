@@ -1,0 +1,17 @@
+Director {
+  Name = srvbackup-dir
+  Password = "{{ bacula_fd_pass }}"
+}
+
+FileDaemon {
+  Name = srvbackup-fd
+  FDport = 9102
+  WorkingDirectory = /var/spool/bacula
+  Pid Directory = /var/run/bacula
+  Maximum Concurrent Jobs = 20
+}
+
+Messages {
+  Name = Standard
+  director = srvbackup-dir = all, !skipped, !restored
+}

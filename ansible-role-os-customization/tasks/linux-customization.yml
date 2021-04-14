@@ -1,0 +1,139 @@
+---
+- name: Extender discos a nuevo tamaño detectado
+  shell: |
+    for dir in /sys/class/scsi_device/*
+    do
+      echo 1 > $dir/device/rescan
+    done
+  when:
+    - hypervisor is defined
+    - hypervisor == "vmware"
+
+- name: Verificar estado de disco de paginacion
+  shell: lsblk | grep -qE "^sdb[[:blank:]]+.*SWAP"
+  register: pgdisk_status
+  failed_when: 1 == 2
+
+- name: Formatear disco de paginacion
+  shell: mkswap /dev/sdb 2> /dev/null | grep "UUID" | awk '{ print $3 }'
+  register: pgdisk_setup
+  when: pgdisk_status.rc != 0
+
+- name: Configurar activacion de disco de paginacion en /etc/fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: "^{{ pgdisk_setup.stdout }}.*swap"
+    line: "{{ pgdisk_setup.stdout }} none swap sw 0 0"
+    state: present
+  when: pgdisk_setup.changed == True
+
+- name: Activar espacio de paginacion
+  command: swapon -a
+
+- name: Fijar valores predeterminado de NTP
+  set_fact:
+    ntp_service: ntpd
+    ntp_conf: /etc/ntp.conf
+    ntp_cmd: ntpdate {{ os_ntpserver }}
+
+- name: Cambiar nombre de servicio NTP en Debian/Ubuntu
+  when: os_vendor in ['debian','ubuntu']
+  set_fact:
+    ntp_service: ntp
+
+- name: Cambiar nombre de servicio NTP en familia RedHat 8
+  when:
+    - ansible_os_family == 'RedHat'
+    - os_maj_release|int == 8
+  set_fact:
+    ntp_service: chronyd
+    ntp_conf: /etc/chrony.conf
+    ntp_cmd: chronyc -a makestep
+
+- name: Tareas propias de servicio ntp/ntpd
+  when: ntp_service in ['ntp','ntpd']
+  block:
+    - name: Detener servicio NTP
+      service:
+        name: "{{ ntp_service }}"
+        state: stopped
+
+    - name: Sincronizar hora contra servidor NTP con ntp/ntpd
+      command: "{{ ntp_cmd }}"
+      environment:
+        PATH: /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
+- name: Reconfiguracion de servicio NTP
+  when: 
+    - os_ntpserver is defined
+    - os_ntpserver != ""
+  block:
+    - name: Deshabilitar cualquier otro servidor en configuracion de NTP
+      replace:
+        path: "{{ ntp_conf }}"
+        regexp: '^((server|pool).*)$'
+        replace: '#\1'
+    
+    - name: Configurar servidor NTP {{ os_ntpserver }}
+      lineinfile:
+        path: "{{ ntp_conf }}"
+        regexp: '^server.*{{ os_ntpserver }}'
+        line: 'server {{ os_ntpserver }}'
+    
+    - name: Reiniciar servicio NTP
+      service:
+        name: "{{ ntp_service }}"
+        state: restarted
+        enabled: yes
+
+- name: Sincronizar hora contra servidor NTP con chronyc
+  when: ntp_service == 'chronyd'
+  command: "{{ ntp_cmd }}"
+  environment:
+    PATH: /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
+- name: Asegurarse que servicio NTP este iniciado
+  service:
+    name: "{{ ntp_service }}"
+    state: started
+    enabled: yes
+
+- name: Configuracion de agente de monitoreo
+  when: os_pandoraserverip is defined and os_pandoraserverip != ""
+  block:
+    - name: Modificar configuracion de Pandora
+      template:
+        src: templates/linux_pandora_agent.conf
+        dest: /usr/share/pandora_agent/pandora_agent.conf
+    
+    - name: Iniciar agente Pandora
+      service:
+        name: pandora_agent_daemon
+        enabled: yes
+        state: restarted
+
+- name: Configuracion SSH - Hardening
+  block:
+    - name: Configurar SSH - PasswordAuthentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: "PasswordAuthentication no"
+      register: ssh_config_1
+
+    - name: Configurar SSH - PermitRootLogin
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: "PermitRootLogin no"
+      register: ssh_config_2
+
+    - name: Configurar SSH - Root permitido solo desde redes privadas RFC 1918
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          Match Address 10.*.*.*,172.*.*.*,192.168.*.*
+            PasswordAuthentication yes
+            PermitRootLogin yes
+        marker: "# {mark} PermitRootLogin block"
+      register: ssh_config_4

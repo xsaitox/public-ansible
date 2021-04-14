@@ -1,0 +1,47 @@
+---
+- name: Check if python binary is available
+  raw: which {{ item }}
+  failed_when: False
+  changed_when: False
+  with_items:
+    - /usr/bin/python
+    - /usr/bin/python2
+    - /usr/bin/python3
+  register: python_binary
+
+- name: Install python
+  when: 1 in python_binary.results | selectattr('rc', 'defined') | map(attribute='rc') | list 
+  block:
+    - name: Look for dnf
+      raw: stat /bin/dnf
+      changed_when: False
+      failed_when: False
+      register: stat_dnf
+
+    - name: Look for yum
+      raw: stat /bin/yum
+      changed_when: False
+      failed_when: False
+      register: stat_yum
+
+    - name: Install Python (Red Hat based distros)
+      raw: >
+        {{ 'dnf' if stat_dnf.rc == 0 else 'yum' }} info python3 &&
+        {{ 'dnf' if stat_dnf.rc == 0 else 'yum' }} -y install python3 ||
+        {{ 'dnf' if stat_dnf.rc == 0 else 'yum' }} -y install python
+        creates=/usr/bin/python
+      when: stat_dnf.rc == 0 or stat_yum.rc == 0
+
+    - name: Look for apt-get
+      raw: stat /bin/apt-get || stat /usr/bin/apt-get
+      changed_when: False
+      failed_when: False
+      register: stat_apt_get
+
+    - name: Install Python (Debian based distros)
+      raw: >
+        apt-get update ;
+        apt-get -y install python3 python-simplejson;
+        ln -sf /usr/bin/python3 /usr/bin/python
+        creates=/usr/bin/python
+      when: stat_apt_get.rc == 0

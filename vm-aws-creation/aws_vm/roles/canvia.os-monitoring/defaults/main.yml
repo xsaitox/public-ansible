@@ -1,0 +1,6 @@
+snmp_community: C4nv14Cl0ud
+path_pandoraagentexe: software-iac/windows/pandora-agent/Pandora_FMS_Windows_Agent_v7.0NG.735_x86_64.exe
+path_pandoraagentrpm: software-iac/linux/pandora-agent/pandorafms_agent_unix-7.0NG.735-1.noarch.rpm
+path_pandoraagentdeb: software-iac/linux/pandora-agent/pandorafms.agent_unix_7.0NG.735.deb
+productid_pandoraagent: PandoraFMS_Agent
+os_pandoraserverip: ""

@@ -1,0 +1,207 @@
+---
+- name: Activacion de Firewall Linux
+  when:
+    firewall_enabled is defined and
+    (firewall_enabled == True or firewall_enabled == "yes")
+  block:
+    - name: Activar iptables en Red Hat/CentOS 6
+      service:
+        name: iptables
+        state: started
+        enabled: yes
+      when:
+        os_vendor == "Amazon Linux AMI" or
+        (ansible_os_family == 'RedHat' and
+        os_release.split('.')[0] == "6")
+    
+    - name: Activar FirewallD en Red Hat/CentOS 7
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+      when:
+        os_vendor == "Amazon Linux"
+        (ansible_os_family == 'RedHat' and
+        os_release.split('.')[0] == "7")
+    
+    - name: Activar SuSEfirewall2 en SUSE 11
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - SuSEfirewall2_init
+        - SuSEfirewall2_setup
+      when: ansible_os_family == 'Suse' and os_release.split('.')[0] == "11"
+    
+    - name: Activar SuSEfirewall2 en SUSE 12
+      service:
+        name: SuSEfirewall2
+        state: started
+        enabled: yes
+      when: ansible_os_family == 'Suse' and os_release.split('.')[0] == "12"
+    
+- name: Configurar duracion maxima de clave
+  replace:
+    path: /etc/login.defs
+    regexp: '(^PASS_MAX_DAYS).*$'
+    replace: '\1\t{{ maxpassage }}'
+
+- name: Configurar duracion minima de clave 
+  replace:
+    path: /etc/login.defs
+    regexp: '(^PASS_MIN_DAYS).*$'
+    replace: '\1\t{{ minpassage }}'
+
+- name: Configurar longitud minima de clave
+  replace:
+    path: /etc/login.defs
+    regexp: '(^PASS_MIN_LEN).*$'
+    replace: '\1\t{{ minpasslen }}'
+
+- name: Configurar dias de advertencia por expiracion de clave
+  replace:
+    path: /etc/login.defs
+    regexp: '(^PASS_WARN_AGE).*$'
+    replace: '\1\t{{ passwarnage }}'
+
+- name: Hardening en RHEL/CentOS 7
+  when:
+    os_release.split('.')[0] == "7" and
+    ansible_os_family == 'RedHat'
+  block:
+    - name: Configurar complejidad de claves de usuarios
+      shell: |
+        authconfig --passminlen={{ minpasslen }} --enablerequpper --enablereqlower --enablereqdigit --enablereqother --passmaxrepeat=3 --passmaxclassrepeat={{ passmaxclassrepeat }} --update
+        authconfig --enablefaillock --faillockargs="deny={{ lockoutbadcount }} unlock_time={{ lockoutduration*60 }} audit even_deny_root" --updateall
+
+    - name: Forzar, tambien a root, las restricciones de clave
+      replace:
+        path: "{{ item }}"
+        regexp: '(password[^\n]*requisite[^\n]*pam_pwquality.so[^\n]*authtok_type=)\n'
+        replace: '\1 enforce_for_root\n'
+      with_items:
+        - /etc/pam.d/system-auth
+        - /etc/pam.d/password-auth
+
+    - name: Evitar reutilizacion de ultimas claves de usuarios
+      lineinfile:
+        path: "{{ item }}"
+        regexp: "password.*requisite.*pam_pwhistory.so.*remember={{ passhistsize }}.*use_authtok"
+        insertafter: "password.*requisite.*pam_pwquality.so"
+        line: "password    requisite     pam_pwhistory.so remember={{ passhistsize }} use_authtok"
+        state: present
+      with_items:
+        - /etc/pam.d/system-auth
+        - /etc/pam.d/password-auth
+
+- name: Configurar cierre automatico de sesion inactiva tras 15 minutos
+  lineinfile:
+    path: /etc/profile
+    state: present
+    regexp: '^export TMOUT'
+    line: 'export TMOUT={{ inactivitylogout }}'
+
+- name: Configurar template de banner SSH
+  template:
+    src: "templates/ssh_banner.txt.j2"
+    dest: "/etc/ssh/banner.txt"
+
+- name: Configurar SSH - Banner
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^Banner.*'
+    line: 'Banner /etc/ssh/banner.txt'
+
+- name: Configurar SSH - PasswordAuthentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PasswordAuthentication'
+    line: "PasswordAuthentication {{ ssh_password_authentication | join('') }}"
+
+- name: Configurar SSH - PermitRootLogin
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitRootLogin'
+    line: "PermitRootLogin {{ ssh_permit_root_login | join('') }}"
+
+- name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en Systemd
+  systemd:
+    name: ctrl-alt-del.target
+    masked: yes
+  when:
+    os_release is defined and
+    ((ansible_os_family == 'Suse' and os_release.split('.')[0] == "12") or
+    (ansible_os_family == 'RedHat' and os_release.split('.')[0] == "7") or
+    os_vendor == "Amazon Linux" or
+    ansible_os_family == 'Debian')
+
+- name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en Upstart
+  template:
+    src: templates/control-alt-delete.override
+    dest: /etc/init/control-alt-delete.override
+    mode: 0644
+  when:
+    os_vendor == "Amazon Linux AMI" or
+    (ansible_os_family == 'RedHat' and
+    os_release.split('.')[0] == "6")
+
+- name: Deshabilitar reinicio con Ctrl+Alt+Del en sistemas basados en System V
+  lineinfile:
+    path: /etc/inittab
+    regexp: '^ca::ctrlaltdel'
+    state: absent
+  register: ctrlaltdel
+  when:
+    os_release is defined and
+    ((ansible_os_family == 'RedHat' or ansible_os_family == 'Suse') and
+    (os_release.split('.')[0] == "5" or os_release.split('.')[0] == "11"))
+
+- name: Recargar inittab
+  shell: telinit q
+  when: ctrlaltdel is defined and ctrlaltdel.changed == True
+
+- name: Crear directorio de historial de comandos
+  file:
+    path: /var/log/history
+    mode: 01777
+    state: directory
+
+- name: Asegurarse que exista directorio de scripts
+  file:
+    path: /scripts
+    mode: 0755
+    state: directory
+    owner: root
+    group: root
+
+- name: Copiar scripts de registro de historial de comandos
+  template:
+    src: "{{ item }}"
+    mode: 0755
+    dest: /scripts
+  with_items:
+    - files/history-log.sh
+    - files/compress-history-log.sh
+
+- name: Configurar cron para comprimir logs de historial de comandos
+  template:
+    src: templates/compress-history-log.cron
+    dest: /etc/cron.d
+    mode: 0644
+
+- name: Configurar registro de historial de comandos en bash de SUSE o Debian/Ubuntu
+  lineinfile:
+    path: /etc/bash.bashrc
+    state: present
+    regexp: '^\. /scripts/history-log.sh'
+    line: '. /scripts/history-log.sh'
+  when: (ansible_os_family == 'Suse') or (ansible_os_family == 'Debian')
+
+- name: Configurar registro de historial de comandos en bash de RedHat/CentOS
+  lineinfile:
+    path: /etc/bashrc
+    state: present
+    regexp: '^\. /scripts/history-log.sh'
+    line: '. /scripts/history-log.sh'
+  when: ansible_os_family == 'RedHat'

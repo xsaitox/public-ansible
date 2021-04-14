@@ -1,0 +1,42 @@
+---
+- name: Consultar fichero systemd de consul
+  register: consul_systemd_file
+  stat:
+    path: /etc/systemd/system/consul.service
+
+- name: Consultar fichero SysV de consul
+  register: consul_sysv_file
+  stat:
+    path: /etc/init.d/consul
+
+- name: Detener consul
+  when: consul_systemd_file.stat.exists or consul_sysv_file.stat.exists
+  service:
+    name: consul
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Borrar archivos de consul
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ consul_config_dir }}"
+    - "{{ consul_data_dir }}"
+    - "{{ consul_runtime_dir }}"
+    - "{{ consul_bin_dir }}/consul"
+    - "{{ consul_home_dir }}"
+    - /etc/systemd/system/consul.service
+    - /etc/tmpfiles.d/consul.conf
+
+- name: Borrar usuario de consul
+  user:
+    name: "{{ consul_user }}"
+    state: absent
+
+- name: Borrar grupo de consul
+  group:
+    name: "{{ consul_group }}"
+    state: absent
+

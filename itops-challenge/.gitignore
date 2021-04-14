@@ -1,0 +1,3 @@
+*.vmdk
+roles/arengifoc.elk
+.vagrant

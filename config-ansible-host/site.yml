@@ -1,0 +1,64 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Asegurarse de existencia de directorio ~/.ssh
+      file:
+        path: "{{ ansible_env.HOME.ssh }}"
+        state: directory
+        mode: 0700
+
+    - name: Remover fingerprint SSH previo de host remoto
+      command: ssh-keygen -R {{ ansible_host }}
+    
+    - name: Registrar finger SSH nuevo de host remoto
+      command: ssh-keyscan -H {{ os_ipaddr }} >> ~/.ssh/known_hosts
+
+- hosts: all
+  gather_facts: no
+  become: yes
+  vars:
+    auto_group: cnvauto
+    auto_user: cnvauto
+    auto_pubkey: ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAymNMTOWQUIDm/LK0oIUQv0iTqUA/gwUWqWcA4CCu7PDa7vkAb3E2cGVwc3eBmTKT+v02rDU4fTqfhzGNzCPnCg7QIJqvQk+YsueaCLcUwww0zBQvBP0gJmhUSxT5aYyYgCPn0IH/OzhN5y3CpTfmODokjcKs5oWHruluIfyIrbcJC7rd+avJtD9HdGlHtVtz0cbQ3+clcpOAxIhK1LcXzoZKEBuG20lX1I27jSpVmXxzW3IEB0e1itPiaCMWeGyg+CwelKZIs3MsDTy3RPBqt1tWRZtHC4fR9G9s4/f0AGeX8jTgXviU8SsabH2Lvg4e4hdYImuibjA9YOeioy8U+w==
+    auto_pass: gGI97jZUKSsEcKIHMTSJ
+  tasks:
+    - name: Buscar existencia de sudo
+      command: which sudo
+      failed_when: 1 == 2
+      register: sudo_found
+    
+    - name: Verificar instalacion de sudo
+      assert:
+        that:
+          - sudo_found.rc == 0
+        success_msg: Validacion exitosa de sudo
+        fail_msg: No se encontro el comando sudo. No se puede continuar
+
+    - name: Configuracion de usuario de automatizacion
+      when: sudo_found.rc == 0
+      block:
+        - name: Asegurarse existencia de /etc/sudoers.d
+          file:
+            path: /etc/sudoers.d
+            mode: 0755
+            state: directory
+
+        - name: Crear grupo de automatizacion
+          group:
+            name: "{{ auto_group }}"
+            state: present
+            
+        - name: Crear usuario de automatizacion
+          user:
+            name: "{{ auto_user }}"
+            password: "{{ auto_pass | password_hash('sha512') }}"
+            state: present
+      
+        - name: Configurar llave privada de usuario de automatizacion
+          authorized_key:
+            user: "{{ auto_user }}"
+            key: "{{ auto_pubkey }}"
+            exclusive: yes
+            state: present

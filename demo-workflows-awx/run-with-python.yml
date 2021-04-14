@@ -1,0 +1,21 @@
+---
+- name: Ejecutar script {{ script | basename }} (modulo shell)
+  shell: test -f {{ profile }} && . {{ profile }} ; cd {{ ruta }} ; {{ script }}
+  register: script_result
+  ignore_errors: yes
+  failed_when: script_result.rc not in {{ result_codes }} 
+
+- name: Error de ejecucion de script (si aplica)
+  debug:
+    msg:
+      - "{{ script_result.cmd if script_result.cmd is defined else script }} : {{ script_result.msg }}"
+      - "{{ script_result.stdout_lines | default(omit) }}"
+  when: script_result.failed
+
+- name: Mostrar salida de error (stderr)
+  debug:
+    msg: "{{ script_result.stderr_lines if script_result.stderr_lines is defined and script_result.stderr_lines != [] else 'No hubo salida de error' }}"
+
+- name: Mostrar salida estandar (stdout)
+  debug:
+    msg: "{{ script_result.stdout_lines if script_result.stdout_lines is defined and script_result.stdout_lines != [] else 'No hubo salida estandar' }}"

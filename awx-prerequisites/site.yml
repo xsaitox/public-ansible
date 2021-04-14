@@ -1,0 +1,108 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  vars:
+    packer_version: 1.4.2
+    terraform_version: 0.12.6
+  gather_facts: no
+  tasks:
+    - name: Crear repositorio de PowerShell
+      get_url:
+        url: https://packages.microsoft.com/config/rhel/7/prod.repo
+        dest: /etc/yum.repos.d/microsoft.repo
+        mode: 0644
+
+    - name: Instalar dependencias de sistema operativo
+      yum:
+        name:
+          - cifs-utils
+          - gcc
+          - java-11-openjdk
+          - krb5-devel
+          - krb5-workstation
+          - pwgen
+          - openssl-devel
+          - postgresql-devel
+          - powershell
+          - python-devel
+          - samba-client
+          - tofrodos
+
+    - name: Instalar modulos de Python2 necesarios
+      pip:
+        name:
+          - enum
+          - awscli
+          - pywinrm
+          - xlsxwriter
+          - pyvmomi
+          - ansible-tower-cli
+
+    - name: Instalar modulo PowerCLI para PowerShell 
+      shell: |
+         pwsh -Command '$modinst = Get-Module -ListAvailable VMware.PowerCLI ; if (!$modinst) { Install-Module -Name VMware.PowerCLI -Force -Scope AllUsers | Out-Null }'
+    
+    - name: Instalacion de packer
+      block:
+        - name: Descarga de packer {{ packer_version }}
+          get_url:
+            url: https://releases.hashicorp.com/packer/{{ packer_version }}/packer_{{ packer_version }}_linux_amd64.zip
+            dest: /tmp/packer.zip
+        
+        - name: Extraer packer
+          unarchive:
+            src: /tmp/packer.zip
+            dest: /usr/local/bin
+            mode: 0755
+            owner: root
+            group: root
+        
+        - name: Descarga de modulo vsphere-iso
+          get_url:
+            url: https://github.com/jetbrains-infra/packer-builder-vsphere/releases/download/v2.3/packer-builder-vsphere-iso.linux
+            dest: /usr/local/bin/packer-builder-vsphere-iso
+            mode: 0755
+            owner: root
+            group: root
+
+        - name: Descarga de modulo vsphere-clone
+          get_url:
+            url: https://github.com/jetbrains-infra/packer-builder-vsphere/releases/download/v2.3/packer-builder-vsphere-clone.linux
+            dest: /usr/local/bin/packer-builder-vsphere-clone
+            mode: 0755
+            owner: root
+            group: root
+
+        - name: Descarga de terraform {{ terraform_version }}
+          get_url:
+            url: https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip
+            dest: /tmp/terraform.zip
+          tags:
+            - run
+        
+        - name: Extraer terraform
+          unarchive:
+            src: /tmp/terraform.zip
+            dest: /usr/local/bin
+            mode: 0755
+            owner: root
+            group: root
+          tags:
+            - run
+
+        - name: Configurar tower-cli
+          shell: |
+            tower-cli config host {{ lookup('env','TOWER_HOST') }}
+            tower-cli config username {{ lookup('env','TOWER_USERNAME') }}
+            tower-cli config password {{ lookup('env','TOWER_PASSWORD') }}
+            tower-cli config verify_ssl False
+
+        - name: Configuracion de /etc/hosts
+          shell: |
+            if ! grep -qi "^{{ item.ip }} {{ item.hostname }}" /etc/hosts ; then echo "{{ item.ip }} {{ item.hostname }}" >> /etc/hosts ; fi
+          with_items:
+            - { hostname: c1fnfvc01.fonafe.corp, ip: 172.23.20.31 }
+            - { hostname: c4fnfvc01.fonafe.corp, ip: 172.23.20.33 }
+          register: result
+

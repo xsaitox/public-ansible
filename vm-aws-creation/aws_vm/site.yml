@@ -1,0 +1,184 @@
+---
+- name: Creacion de VM
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  vars:
+    ec2machinename:  "{{ os_name }}"
+    ec2region:       "us-east-1"
+    ec2instancetype: "t2.xlarge"
+    ec2subnetid:     "{{ subnet_id }}"
+#  gather_facts: no
+#  vars:
+#    packer_template: update_template.json.j2
+  environment:
+    TZ: America/Lima
+  tasks:
+    - name: Busqueda de credenciales
+      set_fact:
+         aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+         aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+
+    - name: Abortar si faltan definir algunas variables
+      fail:
+        msg: "Falta definir variables':' os_name, vm_size, aws_friendly_region"
+      when:
+        os_name is not defined or
+        vm_size is not defined or
+        aws_friendly_region is not defined
+
+#######################Configuracion de pre-requisitos
+    - name: Incluir variables necesarias
+      include_vars: vars/main.yml
+    
+    - name: Generar string aleatorio
+      shell: date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' 'olzEAsgTBa' | cut -c 1-12
+      register: random_name
+   
+    - name: Filtrar variables de mappings
+      set_fact:
+#        desired_vmware: "{{ vmware_data | selectattr('host','equalto', vmware_host) | first }}"
+        desired_vmware: "{{ vmware_data | selectattr('datastore','search', 'c1_3p84_ssd_cloud_test_id010') | first }}"
+        desired_os: "{{ os_data | selectattr('friendly_name','equalto', os_name) | first }}"
+    
+    - name: Definicion de variables diversas
+      set_fact:
+        vm_datastore: "{{ desired_vmware.datastore }}" 
+#        vm_folder: "{{ vm_folder | regex_replace('>','/') }}"
+        os_adminuser: "{{ desired_os.default_user }}"
+        tmpjob: "{{ random_name.stdout }}"
+        ami_pattern: "{{ desired_os.ami_pattern }}"
+
+    - name: Crear directorio de trabajo
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ tmpjob }}"
+        - group_vars
+   
+    - name: Buscar el AMI mas reciente
+      ec2_ami_facts:
+        aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+        aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+        filters:
+          name: "{{ ami_pattern | default(omit) }}"
+      register: ec2_ami_result
+
+    - name: Definir variable para la AMI mas reciente
+      set_fact:
+        latest_ami: "{{ ec2_ami_result.images | sort(attribute='creation_date') | last }}"
+
+    - name: Definir variables acorde a la AMI seleccionada
+      set_fact:
+        vm_ami: "{{ latest_ami.image_id }}"
+
+    - name: Formatear fecha y hora en variable
+      set_fact:
+        datetime: "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
+
+    - name: Generar contraseña aleatoria
+      shell: openssl rand -base64 12
+      register: random_pass
+
+    - name: Definir la clave de administrador
+      set_fact: 
+        os_adminpass: "{{ random_pass.stdout }}"
+  
+    - name: Guardar contraseña en un txt
+      copy:
+        content: "{{ os_adminpass }}"
+        dest: "{{ tmpjob }}/{{ adminpass_file }}"
+#        dest: "group_vars/{{ adminpass_file }}"
+
+#    - name: Modificar salto de linea de archivo a formato Windows
+#      command: todos {{ adminpass_file }}
+#      args:
+#        chdir: "{{ tmpjob }}"
+
+#    - name: Comprimir el txt y asignarle una contraseña 
+#      command: zip -P {{ zip_pass }} {{ adminpass_zipfile }} {{ adminpass_file }}
+#      args:
+#        chdir: "{{ tmpjob }}"
+
+    - name: Creacion de variables de host
+      template:
+        src: templates/groupvars.j2
+        dest: group_vars/{{ tmpjob }}
+
+#######################Crear VM
+    - ec2_instance_facts:
+        filters:
+          "tag:Name": ec2machinename
+          instance-state-name: [ "pending", "running" ]
+      register: result
+
+    - ec2:
+        region: "{{ ec2region }}"
+        image: "{{ vm_ami }}"
+        instance_type: "{{ ec2instancetype }}"
+        wait: yes
+        count: 1
+        vpc_subnet_id: "{{ ec2subnetid }}"
+        instance_tags:
+          "Name": "{{ec2machinename}}"
+      when: (result["instances"]|length == 0)
+      register: ec2
+
+##########################Configuracion de VM
+
+- name: Configuracion de VM
+#  hosts: "{{ hostvars['localhost'].tmpjob }}"
+  hosts: localhost
+  gather_facts: no
+#  become: yes
+  tasks:
+    - name: Esperar a establecer la conexion
+      wait_for_connection:
+        timeout: 1200
+        sleep: 5
+
+##### roles comentados porque no cargan
+####### hypervisor no se reconoce en roles/canvia.os-basevars/tasks/mail.yml
+#    - name: Importar rol de variables base
+#      include_role:
+#        name: canvia.os-basevars
+
+#    - name: Configuraciones personalizadas de sistema
+#      include_role:
+#        name: canvia.os-customization
+
+###########################Tareas finales
+
+- name: Ultimos arreglos
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Incluir valores
+      include_vars: vars/main.yml
+
+    - name: Enviar por correo la clave de administrador
+      mail:
+        host: "{{ smtp_server }}"
+        port: 25
+        from: "{{ mail_from }}"
+        to: "{{ mail_to }}"
+        subject: "{{ mail_subject }}"
+        body: "{{ mail_body }}"
+        attach:
+          - "{{ tmpjob }}/{{ adminpass_file }}"
+          - "group_vars/{{ tmpjob }}"
+      run_once: yes
+
+#    - name: Remover archivos y roles temporales
+#      file:
+#        state: absent
+#        path: "{{ item }}"
+#      with_items:
+#        - "{{ tmpjob }}"
+#        - group_vars/{{ tmpjob }}
+######
+#        - roles/canvia.os-basevars
+#        - roles/canvia.os-customization
+#        - roles/canvia.os-antivirus

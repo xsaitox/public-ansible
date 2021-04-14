@@ -1,0 +1,86 @@
+---
+- name: Instalar requisitos para compilacion
+  yum:
+    state: present
+    name: "{{ packages_for_building }}"
+
+- name: Descargar Bacula
+  get_url:
+    url: "{{ bacula_url }}"
+    dest: /tmp/bacula.tar.gz
+    mode: 0644
+
+- name: Crear directorio de compilacion de Bacula
+  file:
+    path: "{{ bacula_build_dir }}"
+    state: directory
+
+- name: Extraer contenido de tarball de Bacula
+  unarchive:
+    src: /tmp/bacula.tar.gz
+    dest: "{{ bacula_build_dir }}"
+    remote_src: yes
+    creates: "{{ bacula_build_dir }}/configure"
+    extra_opts: [--strip-components=1]
+
+- name: Ejecutar script configure de Bacula
+  command: ./configure {{ bacula_build_opts }}
+  args:
+    chdir: "{{ bacula_build_dir }}"
+    creates: "{{ bacula_build_dir }}/Makefile"
+  register: script_result
+
+- name: Mostrar resultado de script configure
+  when: script_result.changed
+  debug:
+    msg: "{{ script_result.stdout_lines }}"
+
+- name: Verificar existencia de compilacion previa
+  stat:
+    path: "{{ bacula_build_dir }}/src/stored/bacula-sd"
+  failed_when: 1 == 2
+  register: bacula_built
+
+- name: Compilar Bacula
+  when: not bacula_built.stat.exists
+  make:
+    chdir: "{{ bacula_build_dir }}"
+  register: make_result
+
+- name: Mostrar resultado de compilacion de Bacula
+  when: make_result.changed
+  debug:
+    msg: "{{ make_result.stdout_lines }}"
+
+- name: Instalar los binarios compilados de Bacula
+  when: make_result.changed
+  make:
+    chdir: "{{ bacula_build_dir }}"
+    target: install
+  register: make_install_result
+
+- name: Mostrar resultado de instalacion de Bacula
+  when: make_install_result.changed
+  debug:
+    msg: "{{ make_install_result.stdout_lines }}"
+
+- name: Ubicar archivos de servicio Systemd
+  shell: ls {{ bacula_build_dir }}/platforms/systemd/*.service
+  register: systemd_files
+
+- name: Copiar ficheros systemd de Bacula
+  copy:
+    src: "{{ item }}"
+    dest: /usr/lib/systemd/system
+    remote_src: yes
+  with_items: "{{ systemd_files.stdout_lines }}"
+  register: copy_result
+
+- name: Recargar Systemd tras registro de servicios de Bacula
+  when: copy_result.changed
+  command: systemctl daemon-reload
+
+- name: Desinstalar requisitos para compilacion ya no usados
+  yum:
+    state: absent
+    name: "{{ packages_for_building }}"

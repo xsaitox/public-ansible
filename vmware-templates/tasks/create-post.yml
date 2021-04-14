@@ -1,0 +1,16 @@
+---
+- name: Modificar parametros de la VM y convertir a template
+  command: ./files/vm-reconfig.ps1 {{ vmware_host }} {{ vmware_user }} {{ vmware_password }} {{ vm_datastore }} {{ vm_name }} ./files/vmtemplate.nvram {{ template_folder }}
+  register: ps_result
+
+- name: Resultados de la configuracion de la VM
+  debug:
+    msg: "{{ ps_result.stdout_lines }}"
+
+- name: Borrar archivo de variables de host
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - group_vars/{{ tmpjob }}
+    - "{{ tmpjob }}"

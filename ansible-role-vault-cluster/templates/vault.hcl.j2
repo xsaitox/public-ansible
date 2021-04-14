@@ -1,0 +1,15 @@
+listener "tcp" {
+  address         = "0.0.0.0:8200"
+  cluster_address = "{{ (vault_nodes | selectattr('name','equalto', vault_nodename) | first).ip }}:8201"
+  tls_disable     = {{ vault_tls_disable }}
+}
+
+storage "consul" {
+  address = "127.0.0.1:8500"
+  path    = "vault/"
+}
+
+pid_file = "/var/run/vault/vault.pid"
+api_addr = "http://{{ (vault_nodes | selectattr('name','equalto', vault_nodename) | first).ip }}:8200"
+cluster_addr = "https://{{ (vault_nodes | selectattr('name','equalto', vault_nodename) | first).ip }}:8201"
+ui = true

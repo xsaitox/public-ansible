@@ -1,0 +1,47 @@
+---
+- name: Habilitar Escritorio Remoto
+  win_shell: Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+
+- name: Instalacion de Windows Managemt Framework (WMF) 5.1 en Windows 2012
+  when:
+    (os_release is defined and os_release == '2012r2')
+  block:
+    - name: Montar carpeta de instaladores
+      mount:
+        path: /mnt/{{ tmpjob | default(omit) }}
+        src: "{{ smbinst_share }}"
+        fstype: cifs
+        opts: "ro,username={{ smbinst_user }},domain={{ smbinst_domain }},password={{ smbinst_pass }}"
+        state: mounted
+      delegate_to: localhost
+      become: yes
+        
+    - name: Copiar instalador de WMF 5.1
+      win_copy:
+        src: /mnt/{{ tmpjob | default(omit) }}/{{ path_wmf51forwin8 }}
+        dest: C:\Windows\temp\
+
+    - name: Instalar WMF 5.1
+      win_hotfix:
+        source: C:\Windows\temp\{{ path_wmf51forwin8 | basename }}
+        state: present
+      register: wmf_installation
+
+    - name: Borrar archivos de instalacion usados remotamente
+      win_file:
+        path: C:\Windows\temp\{{ path_wmf51forwin8 | basename }}
+        state: absent
+
+    - name: Desmontar carpeta de instaladores
+      mount:
+        path: /mnt/{{ tmpjob | default(omit) }}
+        state: absent
+      delegate_to: localhost
+      become: yes
+
+    - name: Reiniciar para aplicar cambios pendientes
+      win_reboot:
+        reboot_timeout: 600
+      when:
+        (wmf_installation is defined and
+        wmf_installation.changed)

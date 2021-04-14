@@ -1,0 +1,30 @@
+---
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-basevars
+  scm: git
+  version: 1.1.2
+  name: canvia.os-basevars
+
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-baseline
+  scm: git
+  version: master
+  name: canvia.os-baseline
+
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-hardening
+  scm: git
+  version: master
+  name: canvia.os-hardening
+
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-users
+  scm: git
+  version: master
+  name: canvia.os-users
+
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-monitoring
+  scm: git
+  version: master
+  name: canvia.os-monitoring
+
+- src: ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/ansible-role-os-update
+  scm: git
+  version: master
+  name: canvia.os-update

@@ -1,0 +1,61 @@
+---
+smtp_server:      10.100.13.31
+mail_from:        Canvia Automation <automation@canvia.com> #correo por el cual se envía la clave
+mail_subject:     "[Job ID {{ tower_job_id | default('null') }}] Credenciales de VM {{ vm_name }} ({{ os_hostname }})"
+mail_body:        "Ud. acaba de crear una VM con los siguientes datos:\n\n  VM: {{ vm_name }}\n  Hostname: {{ os_hostname }}\n  IP: {{ os_ipaddr }}\n  vCenter: {{ vmware_host }}\n  Data Center: {{ vsphere_datacenter }}\n\nEl archivo adjunto contiene las credenciales de acceso."
+
+os_data:
+  - short_name: windows-2012r2-std-en
+    os_type: windows8Server64Guest
+    product_key: 66N8V-2D2X7-YJB6Q-H4B3D-KKWF8
+
+  - short_name: windows-2016-std-en
+    os_type: windows9Server64Guest
+    product_key: 3P6VN-CR276-YJJKJ-YJCP9-YDXQ2
+
+  - short_name: windows-2019-std-en
+    os_type: windows9Server64Guest
+    product_key: 3P6VN-CR276-YJJKJ-YJCP9-YDXQ2
+
+  - short_name: centos-7
+    os_type: rhel7_64Guest
+
+  - short_name: centos-8
+    os_type: rhel8_64Guest
+
+  - short_name: rhel-7
+    os_type: rhel7_64Guest
+
+  - short_name: rhel-8
+    os_type: rhel8_64Guest
+
+  - short_name: oel-7
+    os_type: rhel7_64Guest
+
+  - short_name: oel-8
+    os_type: rhel8_64Guest
+
+  - short_name: ubuntu-16.04
+    os_type: ubuntu64Guest
+
+  - short_name: ubuntu-18.04
+    os_type: ubuntu64Guest
+
+  - short_name: slesap-12
+    os_type: sles12_64Guest
+
+  - short_name: debian-10
+    os_type: ubuntu64Guest
+
+  - short_name: debian-9
+    os_type: ubuntu64Guest
+
+  - short_name: oel-6
+    os_type: oracleLinux6_64Guest
+
+  - short_name: oel-7
+    os_type: oracleLinux7_64Guest
+
+  - short_name: oel-8
+    os_type: oracleLinux7_64Guest
+

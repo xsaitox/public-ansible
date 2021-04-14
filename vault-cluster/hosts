@@ -1,0 +1,10 @@
+# This is an example only
+# [consul]
+# consul1 ansible_host=<PUT IP 1 HERE>
+# consul2 ansible_host=<PUT IP 2 HERE>
+# consul3 ansible_host=<PUT IP 3 HERE>
+
+[vault]
+vault1 ansible_host=<PUT VAULT IP 1 HERE>
+vault2 ansible_host=<PUT VAULT IP 2 HERE>
+

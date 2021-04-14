@@ -1,0 +1,111 @@
+---
+- hosts: localhost
+  connection: local
+  vars:
+    packer_template: update_template.json.j2
+  environment:
+    TZ: America/Lima
+  gather_facts: yes
+  tasks:
+    - name: Buscar credenciales de AWS
+      set_fact:
+        aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+        aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+
+    - name: Abortar si faltan definir algunas variables
+      fail:
+        msg: "Falta definir variables':' os_name, vm_size, aws_friendly_region"
+      when:
+        os_name is not defined or
+        vm_size is not defined or
+        aws_friendly_region is not defined
+
+    - name: Incluir variable de AMIs
+      include_vars: ami_mapping.yml
+
+    - name: Definir Region AWS
+      set_fact:
+        aws_region: "{{ aws_friendly_region.split(' ')[0] }}"
+
+    - name: Filtrar AMI deseada
+      set_fact:
+        desired_ami: "{{ amis | selectattr('friendly_name','equalto', os_name) | first }}"
+
+    - name: Buscar el AMI mas reciente
+      ec2_ami_facts:
+        aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+        aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+        owners: "{{ desired_ami.owners }}"
+        region: "{{ aws_region }}"
+        filters:
+          root-device-type: "{{ desired_ami.root_device_type }}"
+          name: "{{ desired_ami.name | default(omit) }}"
+          product-code: "{{ desired_ami.product_code | default(omit) }}"
+      register: ec2_ami_result
+
+    - name: Definir variable para la AMI mas reciente
+      set_fact:
+        latest_ami: "{{ ec2_ami_result.images | sort(attribute='creation_date') | last }}"
+    
+    - name: Definir variables acorde a la AMI seleccionada
+      set_fact:
+        os_adminuser: "{{ desired_ami.ssh_user | default('ec2-user') }}"
+        vm_name: "{{ desired_ami.short_name }}"
+        vm_ami: "{{ latest_ami.image_id }}"
+
+    - name: Formatear fecha y hora en variable
+      set_fact:
+        datetime: "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
+
+    - name: Generar string aleatorio
+      shell: date +%s | md5sum | awk '{ print $1 }' | tr '0123456789' 'olzEAsgTBa' | cut -c 1-12
+      register: random_name
+
+    - name: Definir nombre de job aleatorio 
+      set_fact: 
+        tmpjob: "{{ random_name.stdout }}"
+   
+    - name: Crear directorio de trabajo 
+      file: 
+        path: group_vars 
+        state: directory
+ 
+    - name: Crear inventario 
+      template: 
+        src: templates/inventory.ini.j2 
+        dest: inventory-{{ tmpjob }}.ini 
+
+    - name: Crear archivo JSON para packer 
+      template: 
+        src: templates/update_template.json.j2
+        dest: update_template-{{ tmpjob }}.json 
+ 
+    - name: Crear archivo de variables 
+      template: 
+        src: templates/groupvars.j2 
+        dest: group_vars/{{ tmpjob }}
+
+    - name: Crear AMI de {{ os_name }} con Packer
+      shell: |
+        echo packer build -var aws_region={{ aws_region }} -var vm_ami={{ vm_ami }} \
+          -var vm_size={{ vm_size }} -var os_adminuser={{ os_adminuser }} \
+          -var vm_name={{ vm_name }} -machine-readable update_template-{{ tmpjob }}.json
+      register: packer_output
+    
+    - name: Mostrar resultado de creacion de AMI
+      debug:
+        msg:
+          - "{{ packer_output.stdout_lines }}"
+
+#    - name: Borrar archivos usados en la tarea 
+#      file: 
+#        path: "{{ item }}" 
+#        state: absent 
+#      with_items: 
+#        - group_vars/{{ tmpjob }} 
+#        - inventory-{{ tmpjob }}.ini 
+#        - update_template-{{ tmpjob }}.json 
+#        - postinstall-{{ tmpjob }}.yml 
+
+
+

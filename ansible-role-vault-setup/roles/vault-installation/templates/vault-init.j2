@@ -1,0 +1,46 @@
+#!/bin/sh
+# chkconfig: 235 99 10
+# description: Vault secret management solution
+#
+### BEGIN INIT INFO
+# Provides:          vault
+# Required-Start:    $local_fs $network $syslog
+# Required-Stop:     $local_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Vault server
+# Description:       Tool for managing secrets
+### END INIT INFO
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:{{ vault_bin_dir }}
+DESC="Vault secret management solution"
+NAME=vault
+VAULT_USER={{ vault_user }}
+VAULT_GROUP={{ vault_group }}
+PIDFILE={{ vault_runtime_dir }}/vault.pid
+SCRIPTNAME=/etc/init.d/$NAME
+CONFFILE={{ vault_config_dir }}/{{ vault_config_filename }}
+START="{{ vault_bin_dir }}/vault server -config=$CONFFILE"
+setcap 'cap_ipc_lock=+ep' $(readlink -f $(which vault))
+. /etc/profile
+case "$1" in
+    start)
+        runuser -s /bin/bash -g $VAULT_GROUP $VAULT_USER -c "$START" > /dev/null 2>&1 </dev/null &
+        ;;
+    stop)
+        VAULTPID=`cat "$PIDFILE" 2> /dev/null`
+        kill -TERM "$VAULTPID" > /dev/null 2>&1
+        ;;
+    restart)
+        VAULTPID=`cat "$PIDFILE" 2> /dev/null`
+        kill -TERM "$VAULTPID" > /dev/null 2>&1
+        runuser -s /bin/bash -g $VAULT_GROUP $VAULT_USER -c "$START" > /dev/null 2>&1 </dev/null &
+        ;;
+    reload)
+        VAULTPID=`cat "$PIDFILE" 2> /dev/null`
+        kill -HUP "$VAULTPID" > /dev/null 2>&1
+        ;;
+    status)
+        vault status
+        ;;
+esac

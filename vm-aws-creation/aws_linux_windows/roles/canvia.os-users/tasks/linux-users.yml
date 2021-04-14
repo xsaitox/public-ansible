@@ -1,0 +1,105 @@
+---
+- name: Crear grupos de Canvia
+  group: 
+    name: "{{ item }}"
+  with_items:
+    - cnvadmin
+    - cnvusers
+
+- name: Crear usuarios de Canvia
+  user:
+    name: "{{ item.user }}"
+    comment: "{{ item.fullname }}"
+    group: "{{ 'cnvadmin' if item.admin == True else 'cnvusers' }}"
+    password: "{{ item.password | password_hash('sha512') }}"
+    shell: /bin/bash
+    update_password: on_create
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+
+- name: Configurar llaves privadas
+  authorized_key:
+    user: "{{ item.split('/')[-1].split('.')[0] }}"
+    key: "{{ lookup('file', item) }}"
+  with_fileglob:
+    - files/*pub
+  loop_control:
+    label: "{{ item.split('/')[-1].split('.')[0] }}"
+
+- name: Eliminar antiguos usuarios de Canvia
+  user:
+    name: "{{ item.user }}"
+    state: absent
+  with_items:
+    - "{{ nousers }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+
+- name: Solicitar cambio de clave en el primer inicio de sesion
+  command: chage -d 0 {{ item.user }}
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+  when: item.expiredpass == True
+
+- name: Deshabilitar expiracion de clave para usuarios especiales
+  command: chage -M 9999999 {{ item.user }}
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+  when: item.passneverexpires == True
+
+- name: Crear directorio ~/bin
+  file:
+    state: directory
+    path: /home/{{ item.user }}/bin
+    mode: 0755
+    owner: root
+    group: root
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+  when: item.cannotchangepass == True
+
+- name: Evitar que cambien su clave
+  template:
+    src: templates/passwd
+    dest: /home/{{ item.user }}/bin/passwd
+    mode: 0755
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+  when: item.cannotchangepass == True
+
+- name: Modificar PATH de usuario en ~/.bashrc
+  template:
+    src: templates/bashrc
+    dest: /home/{{ item.user }}/.bashrc
+    mode: 0644
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"
+  when: item.cannotchangepass == True
+
+- name: Asegurarse que exista /etc/sudoers.d
+  file:
+    state: directory
+    path: /etc/sudoers.d
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Configurar sudo para usuarios administradores
+  template:
+    backup: yes
+    src: templates/sudoers
+    dest: /etc/sudoers
+    mode: 0640
+    validate: '/usr/sbin/visudo -cf %s'

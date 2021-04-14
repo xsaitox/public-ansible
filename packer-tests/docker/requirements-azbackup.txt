@@ -1,0 +1,8 @@
+azure-mgmt-recoveryservicesbackup
+azure-mgmt-recoveryservicesbackup==0.5.0
+azure-cli-core
+azure-cli-core==2.0.79
+azure-cli-core==2.0.80
+azure-core
+azure-core==1.1.1
+pymssql

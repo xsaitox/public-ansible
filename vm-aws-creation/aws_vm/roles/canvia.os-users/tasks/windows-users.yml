@@ -1,0 +1,14 @@
+---
+- name: Crear usuarios de Canvia
+  win_user:
+    name: "{{ item.user }}"
+    fullname: "{{ item.fullname | default(omit) }}"
+    groups: "{{ 'administrators' if item.admin == True else omit }}"
+    password: "{{ item.password }}"
+    update_password: on_create
+    password_expired: "{{ item.expiredpass }}"
+    user_cannot_change_password: "{{ item.cannotchangepass }}"
+  with_items:
+    - "{{ users }}"
+  loop_control:
+    label: "{{ item.user }} - {{ item.fullname }}"

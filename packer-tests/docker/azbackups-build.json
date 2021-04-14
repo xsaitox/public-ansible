@@ -1,0 +1,45 @@
+{
+    "variables": {
+        "aws_access_key"    : "{{ env `AWS_SECRET_ACCESS_KEY` }}",
+        "aws_secret_key"    : "{{ env `AWS_ACCESS_KEY_ID` }}"
+    },
+    "builders": [
+        {
+            "type"      : "docker",
+            "image"     : "python:3.6-alpine",
+            "commit"    : "true",
+            "changes"   : [
+                "CMD [\"\"]",
+                "ENTRYPOINT [\"\"]",
+                "USER 1000"
+            ]
+        }
+    ],
+    "provisioners": [
+        {
+            "type"  : "shell",
+            "inline": [
+                "apk update",
+                "apk add libffi-dev openssl-dev gcc make libc-dev freetds freetds-dev",
+                "pip install azure-mgmt-recoveryservicesbackup==0.5.0",
+                "pip install azure-cli-core==2.0.79",
+                "pip install azure-core==1.1.1",
+                "pip install cython",
+                "pip install pymssql",
+                "pip install azure-cli",
+                "apk del libffi-dev openssl-dev gcc make libc-dev freetds-dev"
+            ]
+        }
+    ],
+    "post-processors": [
+        [
+            {
+                "type"          : "docker-tag",
+                "repository"    : "arengifoc/azbackup",
+                "tag"           : "latest"
+            },
+            "docker-push"
+        ]
+    ]
+
+}

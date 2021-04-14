@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Verificar que exista las variables requeridas
+      assert:
+        that:
+          - report_name_prefix is defined
+        fail_msg: No se ha definido una o mas variables requeridas{{ ':' }} report_name_prefix
+        success_msg: Validacion de variables exitosa
+
+    - name: Modificar nombre de reporte
+      set_fact:
+        report_name: "{{ report_name_prefix }}-VMs.xlsx"
+
+    - name: Mostrar nombre de reporte
+      debug:
+        msg: "{{ report_name }}"
+
+    - name: Generar reporte
+      command: ./consolidate-vcenter-report.sh {{ report_name }}
+      args:
+        chdir: ./files
+
+    - name: Borrar archivos temporales generados
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - "files/*.vce.csv"

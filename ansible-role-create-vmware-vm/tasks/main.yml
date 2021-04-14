@@ -1,0 +1,9 @@
+---
+- name: Check prerequisites
+  include_tasks: prereqs.yml
+
+- name: Prepare environment
+  include_tasks: preparation.yml
+
+- name: Create VM
+  include_tasks: create-vm.yml

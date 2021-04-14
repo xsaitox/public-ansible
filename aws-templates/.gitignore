@@ -1,0 +1,10 @@
+roles/canvia*
+packer-config-*json
+inventory-*ini
+packer-*log
+postinstall-*yml
+ipv4-*txt
+sshkey*
+vars.yml
+test.yml
+test/*

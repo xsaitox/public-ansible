@@ -1,0 +1,14 @@
+---
+{% if desired_os.short_name | regex_search('windows', ignorecase=True) %}ansible_user: administrator
+ansible_connection: winrm
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5986
+ansible_winrm_connection_timeout: 1200
+ansible_winrm_transport: ntlm
+{% else %}
+ansible_user: root
+ansible_connection: ssh
+ansible_port: 22
+ansible_host_key_checking: no
+{% endif %}
+ansible_password: {{ os_adminpass }}

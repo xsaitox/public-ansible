@@ -1,0 +1,220 @@
+---
+- name: Deteccion de equipo fisico
+  when:
+    ansible_virtualization_role is defined and
+    ansible_virtualization_role == 'host'
+  set_fact:
+    hosttype: physical
+
+- name: Deteccion de equipo virtual
+  when:
+    ansible_virtualization_role is defined and
+    ansible_virtualization_role != 'host'
+  block:
+    - name: Virtual machine
+      set_fact:
+        hosttype: vm
+
+    - name: VMware
+      set_fact:
+        hypervisor: vmware
+      when:
+        (ansible_virtualization_type is defined and
+        ansible_virtualization_type == "VMware") or
+        (ansible_system_vendor is defined and
+        ansible_system_vendor | regex_search('vmware', ignorecase=True)) or
+        (ansible_product_name is defined and
+        ansible_product_name | regex_search('vmware', ignorecase=True))
+
+    - name: AWS
+      set_fact:
+        hypervisor: aws
+      when:
+        (ansible_virtualization_type is defined and
+        (ansible_virtualization_type == "xen" or
+        ansible_virtualization_type == "kvm")) and
+        (ansible_product_version | regex_search('amazon', ignorecase=True) or
+        ansible_system_vendor | regex_search('amazon', ignorecase=True))
+
+    - name: Azure
+      set_fact:
+        hypervisor: azure
+      when:
+        ansible_virtualization_type is defined and
+        ansible_virtualization_type == "VirtualPC" and
+        ansible_system_vendor | regex_search('microsoft', ignorecase=True)
+
+    - name: VirtualBox
+      set_fact: 
+        hypervisor: virtualbox 
+      when: 
+        ansible_virtualization_type is defined and 
+        ansible_virtualization_type == "virtualbox"
+
+- name: Deteccion de sistema operativo
+  block:
+    - name: Windows
+      set_fact:
+        os: windows
+      when: ansible_system == 'Win32NT'
+
+    - name: Linux
+      set_fact:
+        os: linux
+      when: ansible_system == 'Linux'
+
+- name: Deteccion de variantes de sistema operativo Windows
+  when: os == 'windows'
+  block:
+    - name: Windows 2008 R2
+      set_fact:
+        os_release: 2008r2
+      when: ansible_distribution | regex_search('Windows.*2008.*R2', ignorecase=True)
+
+    - name: Windows 2012 R2
+      set_fact:
+        os_release: 2012r2
+      when: ansible_distribution | regex_search('Windows.*2012.*R2', ignorecase=True)
+
+    - name: Windows 2016
+      set_fact:
+        os_release: 2016
+      when: ansible_distribution | regex_search('Windows.*2016', ignorecase=True)
+
+    - name: Windows 2019
+      set_fact:
+        os_release: 2019
+      when: ansible_distribution | regex_search('Windows.*2019', ignorecase=True)
+
+    - name: Variable os_vendor
+      set_fact:
+        os_vendor: windows
+
+- name: Deteccion de variantes de sistema operativo Linux
+  when: os == 'linux'
+  block:
+    - name: Ubuntu
+      set_fact:
+        os_vendor: ubuntu
+      when: ansible_distribution == 'Ubuntu'
+
+    - name: Debian
+      set_fact: 
+        os_vendor: debian
+      when: ansible_distribution == 'Debian'
+
+    - name: Amazon Linux
+      set_fact:
+        os_vendor: amazon
+      when: ansible_distribution == 'Amazon'
+
+    - name: CentOS
+      set_fact:
+        os_vendor: centos
+      when: ansible_distribution == 'CentOS'
+
+    - name: Red Hat Enterprise Linux
+      set_fact:
+        os_vendor: rhel
+      when: ansible_distribution == 'RedHat'
+
+    - name: SUSE Enterprise Linux Server
+      set_fact:
+        os_vendor: sles
+      when:
+        ansible_distribution == 'SLES' or
+        ansible_distribution == 'SLES_SAP'
+
+    - name: Oracle Linux
+      set_fact: 
+        os_vendor: oracle
+      when:
+        ansible_distribution == 'OracleLinux'
+
+    - name: Verificar si existe /etc/os-release
+      stat:
+        path: /etc/os-release
+      register: osrelease_file
+
+    - name: Verificar si existe /etc/redhat-release
+      stat:
+        path: /etc/redhat-release
+      register: redhatrelease_file
+
+    - name: Verificar distribuciones Linux basadas en /etc/os-release
+      when: osrelease_file.stat.exists
+      block:
+        - name: Obtener version de distribucion Linux
+          shell: grep -w "VERSION_ID" /etc/os-release | cut -d = -f 2 | tr -d '"'
+          register: version_id
+
+        - name: Version de distribucion Linux
+          set_fact:
+            os_release: "{{ version_id.stdout }}"
+
+    - name: Verificar distribuciones derivadas de RedHat no basadas en /etc/os-release
+      when:
+        not osrelease_file.stat.exists and
+        redhatrelease_file.stat.exists
+      block:
+        - name: Obtener release de distribucion Linux
+          shell: grep -oE "release ([0-9]\.?)+" /etc/redhat-release | awk '{ print $2 }'
+          register: redhat_release
+
+        - name: Version de distribucion Linux
+          set_fact:
+            os_release: "{{ redhat_release.stdout }}"
+
+    - name: Verificar distribuciones Linux no basadas en /etc/os-release
+      when: not osrelease_file.stat.exists
+      block:
+        - name: Version de distribucion Linux generica
+          set_fact:
+            os_vendor: "Linux generic"
+            os_release: "1"
+
+    - name: Detectar ubicacion de comando systemctl
+      command: which systemctl
+      register: systemctl_result
+      ignore_errors: yes
+
+    - name: Definir variable de deteccion de entorno Systemd
+      set_fact:
+        systemd_capable: "{{ 'yes' if systemctl_result.rc == 0 else 'no' }}"
+
+- name: Variable os_maj_release
+  set_fact:
+    os_maj_release: "{{ os_release.split('.')[0] }}"
+  when: os == 'linux'
+
+- name: Variable os_base_version
+  set_fact:
+    os_base_version: "{{ os_vendor }}-{{ os_maj_release }}"
+  when: os == 'linux'
+
+- name: Agregar variables accesibles globales al host
+  set_fact:
+    smbinst_share: "{{ smbinst_share }}"
+    smbinst_user: "{{ smbinst_user }}"
+    smbinst_domain: "{{ smbinst_domain }}"
+    smbinst_pass: "{{ smbinst_pass }}"
+    firewall_enabled: "{{ firewall_enabled }}"
+    ssh_password_authentication: ["yes"]
+    ssh_permit_root_login: ["yes"]
+
+- name: Ajustar valores de SSH para cloud
+  set_fact:
+    ssh_password_authentication: ["no"]
+    ssh_permit_root_login: ["no"]
+  when:
+    hypervisor is defined and
+    (hypervisor == 'aws' or
+    hypervisor == 'azure')
+
+- name: Definir interprete de Python a usar
+  set_fact:
+    ansible_python_interpreter: /usr/bin/python3
+  when:
+    os_vendor is defined and
+    (os_vendor in ['rhel','centos','oracle']) and
+    os_maj_release == 8

@@ -1,0 +1,6 @@
+---
+- name: Instalar software esencial en Debian/Ubuntu
+  apt:
+    name: "{{ linux_debian_packages }}"
+    state: present
+    update_cache: yes

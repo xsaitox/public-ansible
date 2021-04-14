@@ -1,0 +1,33 @@
+---
+- name: Perform VM deployment
+  vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    annotation: "{{ vm_annotation }}"
+    cluster: "{{ cluster }}"
+    # resource_pool: "{{ vm_resourcepool }}"
+    validate_certs: "{{ validate_certs }}"
+    wait_for_ip_address:  "{{ wait_for_ip }}"
+    name: "{{ vm_name }}"
+    force: yes
+    folder: "{{ vm_folder }}"
+    guest_id: "{{ vm_os_type }}"
+    state: "{{ vm_state }}"
+    template: "{{ vm_template }}"
+    datastore: "{{ vm_datastore }}"
+    hardware:
+      memory_mb: "{{ vm_memory }}"
+      num_cpus: "{{ vm_cpus }}"
+      scsi: "paravirtual"
+      hotadd_cpu: True
+      hotadd_memory: True
+    networks: "{{ networks }}"
+    disk: "{{ vm_disks }}"
+    customization:
+      password: "{{ os_adminpass | default(omit) }}"
+      hostname: "{{ os_hostname }}"
+      domain: "{{ os_domain | default(omit) }}"
+      dns_servers: "{{ os_dns.split(',') }}"
+  register: result_vmware_guest

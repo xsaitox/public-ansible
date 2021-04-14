@@ -1,0 +1,15 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    message: '[{"identifier":"SLES_SAP","version":"12.4","arch":"x86_64","status":"Registered"}]'
+  tasks:
+    - command: echo '[{"identifier":"SLES_SAP","version":"12.4","arch":"x86_64","status":"Registered"}]'
+      register: suseconnect_result
+
+    - set_fact:
+        suseconnect_status: "{{ suseconnect_result.stdout | from_json | json_query('[*].status') | first }}"
+
+    - debug:
+        msg: "{{ suseconnect_status }}"

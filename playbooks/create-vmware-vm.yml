@@ -1,0 +1,36 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    vcenter_username: acancino@splunk.com
+    vcenter_password: !vault |
+              $ANSIBLE_VAULT;1.1;AES256
+              61653837653433346130396337316564623462313039336237316435373935643733613665353134
+              3864396365373465373731623065616337373938383966370a336165623862333062366335343438
+              32383566623562313531363362353231393538383465626535376565333539363964313164663333
+              6235366465336438300a386532613237363933613034663264376562353965303532343533383035
+              6639
+    vcenter_hostname: vcenter01.sv.splunk.com
+    datacenter: SPLUNK-VMI
+    vm_datastore: SV3_IT-AdHoc1
+    cluster: SV3-Lab-01-Dell
+    vm_folder: /IT
+    vm_template: standard-centos7x64-small
+    vm_name: acancino(c)-test
+    guest_os:
+    guest_state:
+    vm_memory: 2048
+    vm_cpus: 1
+    hardware_state:
+    vm_networks: |
+      IT-Build-Common-150,150
+    vm_extradisks: |
+      10
+      8
+      23
+    os_hostname: demovm
+    network_name2:
+    base_changed:
+  roles:
+    - ansible-role-create-vmware-vm

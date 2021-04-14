@@ -1,0 +1,8 @@
+---
+- name: Crear usuarios de Canvia en Windows
+  include_tasks: windows-users.yml
+  when: ansible_system == 'Win32NT'
+
+- name: Crear usuarios de Canvia en Linux
+  include_tasks: linux-users.yml
+  when: ansible_system == 'Linux'

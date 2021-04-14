@@ -1,0 +1,16 @@
+---
+- name: Identificacion del disco para Bacula Storage
+  when:
+    - item.value.partitions | length == 0
+    - item.value.size.split(' ')[0] | int >= 50
+  set_fact:
+    disk_devices: "{{ disk_devices | default([]) + [item.key] }}"
+  with_dict: "{{ ansible_devices }}"
+  loop_control:
+    label: /dev/{{ item.key }}
+
+- name: Formateo de disco para Bacula Storage
+  filesystem:
+    fstype: xfs
+    device: /dev/{{ disk_devices | first }}
+  when: disk_devices is defined

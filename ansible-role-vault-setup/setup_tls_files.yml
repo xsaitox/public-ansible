@@ -1,0 +1,37 @@
+---
+- name: Save CA cert to file
+  copy:
+    dest: /tmp/ca_cert.pem
+    content: "{{ ca_cert }}"
+  when: ca_cert is defined
+  delegate_to: localhost
+
+- name: Set CA cert variable
+  set_fact:
+    ca_cert_file: /tmp/ca_cert.pem
+  when: ca_cert is defined
+
+- name: Save server cert to file
+  copy:
+    dest: /tmp/server_cert.pem
+    content: "{{ server_cert }}"
+  when: server_cert is defined
+  delegate_to: localhost
+
+- name: Set server cert variable
+  set_fact:
+    server_cert_file: /tmp/server_cert.pem
+  when: server_cert is defined
+
+- name: Save server key to file
+  copy:
+    dest: /tmp/server_key.pem
+    content: "{{ server_key }}"
+  when: server_key is defined
+  delegate_to: localhost
+
+- name: Set server key variable
+  set_fact:
+    server_key_file: /tmp/server_key.pem
+  when: server_key is defined
+

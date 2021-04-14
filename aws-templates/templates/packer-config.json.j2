@@ -1,0 +1,89 @@
+{
+    "variables": {
+        "aws_access_key":       "{{ '{{' }} env `AWS_ACCESS_KEY_ID` {{ '}}' }}",
+        "aws_secret_key":       "{{ '{{' }} env `AWS_SECRET_ACCESS_KEY` {{ '}}' }}"
+    },
+    "sensitive-variables":      [ "os_adminuser" ],
+    "builders": [
+        {
+            "type":             "amazon-ebs",
+            "access_key":       "{{ '{{' }} user `aws_access_key` {{ '}}' }}",
+            "secret_key":       "{{ '{{' }} user `aws_secret_key` {{ '}}' }}",
+            "source_ami":       "{{ '{{' }} user `vm_ami` {{ '}}' }}",
+            "ami_name":         "img_{{ '{{' }} user `vm_name` }}_{{ datetime }}",
+            "instance_type":    "{{ '{{' }} user `vm_size` {{ '}}' }}",
+            "region":           "{{ '{{' }} user `aws_region` {{ '}}' }}",
+{% if os_name | regex_search("windows", ignorecase=True) %}
+            "user_data_file":   "files/ConfigureRemotingForAnsible.ps1",
+            "communicator":     "winrm",
+            "winrm_username":   "administrator",
+            "winrm_insecure":   true,
+            "winrm_use_ssl":    true,
+            "winrm_use_ntlm":   true,
+{% else %}
+            "ssh_username":     "{{ '{{' }} user `os_adminuser` {{ '}}' }}",
+{% endif %}
+            "tags": {
+                "Name":         "{{ '{{' }} user `vm_name` {{ '}}' }}_{{ datetime }}",
+                "Comment":      "Created using IaC"
+            }
+        }
+    ],
+    "provisioners": [
+{% if os_name | regex_search("windows", ignorecase=True) %}
+        {
+            "type":            "powershell",
+            "inline": [
+                "Invoke-RestMethod -Method GET -Uri http://169.254.169.254/latest/meta-data/public-ipv4 | Out-File C:\\Windows\\Temp\\host -encoding ascii"
+            ]
+        },
+        { 
+            "type": "file", 
+            "direction": "download", 
+            "source": "C:\\Windows\\Temp\\host", 
+            "destination": "ipv4-{{ tmpjob }}.txt" 
+        },
+        {
+            "type":             "shell-local",
+            "environment_vars": ["ANSIBLE_HOST_KEY_CHECKING=False"], 
+            "inline": [
+                "cat ipv4-{{ tmpjob }}.txt >> inventory-{{ tmpjob }}.ini",
+                "echo 'ansible_password: {{ '{{' }} .WinRMPassword {{ '}}' }}' >> group_vars/{{ tmpjob }}",
+                "ansible-playbook -i inventory-{{ tmpjob }}.ini -e new_admin_pass='{{ new_admin_pass }}' -e '{ nopass: {{ nopass | default('no') }} }' postinstall-{{ tmpjob }}.yml" 
+            ]
+        }
+{% else %}
+        { 
+            "type": "file", 
+            "direction": "upload", 
+            "source": "sshkey-{{ tmpjob }}.pub",
+            "destination": "/tmp/sshkey.pub" 
+        },
+        {
+            "type": "shell",
+            "environment_vars": [
+                "PATH=/bin:/sbin:/usr/bin:/usr/sbin"
+            ],
+            "inline": [ 
+                "curl http://169.254.169.254/latest/meta-data/public-ipv4 > /tmp/.ipv4.txt",
+                "cat /tmp/sshkey.pub >> /home/{{ os_adminuser }}/.ssh/authorized_keys",
+                "rm -f /tmp/sshkey.pub"
+            ] 
+        },
+        { 
+            "type": "file", 
+            "direction": "download", 
+            "source": "/tmp/.ipv4.txt", 
+            "destination": "ipv4-{{ tmpjob }}.txt" 
+        },
+        {
+            "type":             "shell-local",
+            "environment_vars": ["ANSIBLE_HOST_KEY_CHECKING=False"], 
+            "inline": [
+                "cat ipv4-{{ tmpjob }}.txt >> inventory-{{ tmpjob }}.ini",
+                "ansible-playbook -i inventory-{{ tmpjob }}.ini --private-key=sshkey-{{ tmpjob }} -e new_admin_pass='{{ new_admin_pass }}' -e '{ nopass: {{ nopass | default('no') }} }' -b postinstall-{{ tmpjob }}.yml " 
+            ]
+        }
+{% endif %}
+    ]
+}

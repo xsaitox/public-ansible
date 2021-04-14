@@ -1,0 +1,69 @@
+---
+- hosts: all
+  gather_facts: no
+  become: yes
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Install Python using raw module
+      import_tasks: python_installation.yml
+
+    - name: Gather facts
+      setup:
+
+    - name: Install required dependencies
+      import_tasks: deps_installation.yml
+
+    - name: Setup TLS files
+      import_tasks: setup_tls_files.yml
+  tasks:
+    - name: Uninstall Vault if already present
+      import_role:
+        name: vault-installation
+      vars:
+        stage: uninstall
+
+    - name: Remove init info locally
+      file:
+        path: "/home/{{ ansible_env.SUDO_USER }}/vault-init-info.txt"
+        state: absent
+      delegate_to: localhost
+
+    - name: Invoke role for Vault installation
+      import_role:
+        name: vault-installation
+      vars:
+        stage: install
+
+- hosts: "{{ groups['vault'][0] }}"
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Initialize and unseal first Vault node
+      import_tasks: init_and_unseal.yml
+
+- hosts: "{{ groups['vault'][1:] }}"
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Unseal remaining nodes
+      import_tasks: unseal.yml
+
+- hosts: localhost
+  gather_facts: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Save init info locally
+      copy:
+        dest: "{{ ansible_env.HOME }}/vault-init-info.txt"
+        content: |
+          Shamir keys:
+          {% for item in hostvars[groups['vault'][0]].vault_init_keys -%}
+            - {{ item }}
+          {% endfor -%}
+          Root token: {{ hostvars[groups['vault'][0]].vault_root_token }}
+          {{ ' ' }}
+      when: hostvars[groups['vault'][0]].vault_init_keys is defined

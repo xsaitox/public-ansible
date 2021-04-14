@@ -1,0 +1,63 @@
+- name: Incluir variables
+  include_vars:
+    dir: ../vars/
+    extensions:
+      - yml
+
+- name: Definir variables
+  set_fact:
+    aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID')  }}"
+    aws_secret_key: "{{  lookup('env','AWS_SECRET_ACCESS_KEY')  }}"
+    datetime: "{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute}}"
+    ec2_instance_type: "{{ ec2_instance_type }}"
+    ec2_name: "{{ ec2_name }}"
+    desired_vpc: "{{  vpcs | selectattr('vpc_subnet_name','equalto', vpc_subnet_name) | first  }}"
+    desired_ami: "{{  so | selectattr('so_name','equalto', so_name) | first  }}"
+    ec2_ports: "{{  ec2_ports  }}"
+    ec2_ebs: "{{  ec2_ebs  }}"
+    existPorts: false
+    existEBS: false
+
+- name: Definir puertos si existen
+  set_fact:
+    ports: "{{  ec2_ports.split(';')  }}"
+    existPorts: true
+  when: ec2_ports | length > 0
+
+- name: Definir discos adicionales si existen
+  set_fact:
+    ebs: "{{  ec2_ebs.split(';')  }}"
+    existEBS: true
+  when: ec2_ebs | length > 0
+
+- name: Definir variables
+  set_fact:
+    vpc_id: "{{ desired_vpc.vpc_id }}"
+    subnet_id: "{{ desired_vpc.subnet_id }}"
+    ec2_ami: "{{  desired_ami.so_ami  }}"
+    so_type: "{{  desired_ami.so_type  }}"
+
+- name: Establecer variable de trabajo
+  set_fact:
+    var_job: ".tmp/{{ datetime }}_{{ ec2_ami }}_{{  ec2_name  }}"
+
+- name: Crear directorio de trabajo
+  file:
+    path: "{{ var_job }}"
+    state: directory
+
+- name: Generar contraseña aleatoria
+  command: openssl rand -base64 12
+  register: random_pass
+
+- name: Definir contraseña root
+  set_fact:
+    admin_password: "{{ random_pass.stdout }}"
+
+- name: Guardar contraseña generada en un archivo txt
+  copy:
+    content: "Root Password: {{ admin_password }}"
+    dest: "{{ var_job }}/password"
+
+- name: Comprimir el txt y asignarle una contraseña
+  command: "zip -P {{  zip_pass  }} {{ var_job }}/password.zip {{ var_job }}/password"

@@ -1,0 +1,54 @@
+---
+- name: Preparar disco para data de Docker
+  lvg:
+    pvs: "{{ docker_data_disk }}"
+    vg: "{{ docker_data_vg }}"
+    state: present
+  register: vg_creation
+
+- name: Creacion de LV para data de Docker
+  lvol:
+    vg: "{{ docker_data_vg }}"
+    lv: fslv01
+    size: 100%FREE
+  when: vg_creation.changed
+
+- name: Crear filesystem en LV de data de Docker
+  filesystem:
+    fstype: "{{ docker_data_fs }}"
+    dev: /dev/mapper/{{ docker_data_vg }}-fslv01
+
+- name: Montar filesystem de data de Docker
+  mount:
+    path: "{{ docker_data_path }}"
+    src: /dev/mapper/{{ docker_data_vg }}-fslv01
+    fstype: "{{ docker_data_fs }}"
+    state: mounted
+
+- name: Ajustar permisos de directorio de data de Docker
+  file:
+    path: "{{ docker_data_path }}"
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Agregar repositorio de Docker
+  yum_repository:
+    name: docker-ce-stable
+    file: docker-ce
+    description: Docker CE Stable - $basearch
+    baseurl: "{{ docker_yumrepo_baseurl }}"
+    gpgcheck: yes
+    gpgkey: "{{ docker_yumrepo_gpgkey }}"
+    enabled: yes
+
+- name: Instalar Docker
+  yum:
+    name: "{{ docker_packages }}"
+    state: present
+
+- name: Iniciar servicio Docker
+  service:
+    name: docker
+    enabled: yes
+    state: started

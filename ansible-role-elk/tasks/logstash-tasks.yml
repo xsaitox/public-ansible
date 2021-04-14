@@ -1,0 +1,28 @@
+---
+- name: Instalar dependencias para Logstash
+  yum:
+    name: "{{ logstash_packages }}"
+    state: present
+
+- name: Instalar modulos de Python requeridos
+  pip:
+    name: docker
+    state: present
+
+- name: Obtener imagen de Logstash
+  docker_image:
+    name: "{{ logstash_docker_repo }}:{{ logstash_version }}"
+    source: pull
+
+- name: Crear configuracion de Logstash
+  template:
+    src: logstash.yml
+    dest: /etc/logstash.yml
+
+- name: Iniciar contenedor de Logstash
+  docker_container:
+    name: logstash
+    image: "{{ logstash_docker_repo }}:{{ logstash_version }}"
+    state: started
+    volumes:
+      - /etc/logstash.yml:/usr/share/logstash/config/logstash.yml

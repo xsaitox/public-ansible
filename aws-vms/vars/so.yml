@@ -1,0 +1,8 @@
+so:
+  - so_name: Windows_2016
+    so_type: Windows
+    so_ami: ami-0e6c6792a0320d221
+
+  - so_name: Linux_Amazon
+    so_type: Linux
+    so_ami: ami-056fb046384f5fd8a

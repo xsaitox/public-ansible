@@ -1,0 +1,85 @@
+---
+- name: Habilitar servicio atd
+  service:
+    name: atd
+    state: started
+    enabled: yes
+
+- name: Configurar SSH - Deshabilitar consultas DNS
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^UseDNS'
+    line: "UseDNS no"
+
+- name: Configurar SSH - Ajustes de keepalive 1
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveInterval'
+    line: "ClientAliveInterval 30"
+
+- name: Configurar SSH - Ajustes de keepalive 2
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveCountMax'
+    line: "ClientAliveCountMax 5"
+
+- name: Instalar software de Red Hat/CentOS
+  include_tasks: linux-redhat-software-installation.yml
+  when:
+    (os_vendor == 'centos' or 
+     os_vendor == 'rhel' or 
+     os_vendor == 'oracle')
+
+- name: Instalar software de Debian/Ubuntu
+  include_tasks: linux-debian-software-installation.yml
+  when:
+    os_vendor == 'ubuntu' or
+    os_vendor == 'debian'
+
+- name: Instalar software de SUSE
+  include_tasks: linux-suse-software-installation.yml
+  when:
+     os_vendor == 'sles'
+   
+- name: Instalar software de Amazon
+  include_tasks: linux-amazon-software-installation.yml
+  when:
+    (os_vendor == 'amazon' and os_release != '2')
+
+- name: Instalar software de Amazon 2
+  include_tasks: linux-amazon2-software-installation.yml
+  when:
+    (os_vendor == 'amazon' and os_release == '2')
+
+- name: Deshabilitar SELinux
+  selinux:
+    state: disabled
+  when:
+    os_vendor == 'centos' or
+    os_vendor == 'oracle' or
+    os_vendor == 'rhel' or
+    (os_vendor == 'amazon' and
+    os_release == '2')
+
+- name: Personalizacion de parametros de kernel en RHEL/CentOS
+  when:
+    (os_vendor == 'centos' or 
+    os_vendor == 'rhel' or 
+    os_vendor == 'oracle') and
+    os_release.split('.')[0] == '7'
+  block:
+    - name: Remover parametros rhgb y quiet en RHEL/CentOS
+      replace:
+        path: /etc/default/grub
+        regexp: 'rhgb|quiet'
+      register: edit_grub
+
+    - name: Regenerar configuracion de grub
+      shell: |
+        grub2-mkconfig -o /boot/grub2/grub.cfg
+      register: reconf_grub
+      when: edit_grub.changed
+
+- name: Configurar zona horaria a America/Lima
+  timezone:
+    name: America/Lima

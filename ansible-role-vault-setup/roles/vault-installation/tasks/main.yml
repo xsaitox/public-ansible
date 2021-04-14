@@ -1,0 +1,28 @@
+---
+# tasks file for ansible-role-vault-setup
+- name: Uninstall Vault
+  when: stage in ['uninstall','reinstall']
+  block:
+    - name: Invoke uninstallation tasks
+      include_tasks: uninstallation.yml
+
+- name: Install and configure Vault
+  when: stage in ['install','reinstall']
+  block:
+    - name: Invoke installation tasks
+      include_tasks: installation.yml
+
+    - name: Invoke configuration tasks
+      include_tasks: configuration.yml
+
+# - name: Invoke initialization tasks
+#   when: stage == 'initialize'
+#   include_tasks: initialization.yml
+
+# - name: Invoke unsealing tasks
+#   when: stage == 'unseal'
+#   include_tasks: unsealing.yml
+
+# - name: Invoke customization (post-installation) tasks
+#   when: stage == 'customize'
+#   include_tasks: customization.yml

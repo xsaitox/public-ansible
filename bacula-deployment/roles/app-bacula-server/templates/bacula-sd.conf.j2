@@ -1,0 +1,28 @@
+Storage {
+  Name = srvbackup-sd
+  SDPort = 9103
+  WorkingDirectory = /var/spool/bacula
+  Pid Directory = /var/run/bacula
+  Maximum Concurrent Jobs = 20
+}
+
+Director {
+  Name = srvbackup-dir
+  Password = "{{ bacula_sd_pass }}"
+}
+
+Device {
+  Name = Drive-File1
+  Media Type = File1
+  Archive Device = {{ bacula_sd_device }}
+  LabelMedia = yes
+  Random Access = Yes
+  AutomaticMount = yes
+  RemovableMedia = no
+  AlwaysOpen = no
+}
+
+Messages {
+  Name = Standard
+  director = srvbackup-dir = all 
+}

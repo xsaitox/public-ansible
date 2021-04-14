@@ -1,0 +1,15 @@
+{
+  "server": true,
+  "node_name": "{{ consul_nodename }}",
+  "datacenter": "{{ consul_dc }}",
+  "data_dir": "/var/consul/data",
+  "bind_addr": "0.0.0.0",
+  "client_addr": "0.0.0.0",
+  "advertise_addr": "{{ (consul_nodes | selectattr('name','equalto', consul_nodename) | first).ip }}",
+  "bootstrap_expect": 3,
+  "retry_join": ["{{ consul_nodes | map(attribute='ip') | list | join('\",\"') }}"],
+  "ui": true,
+  "log_level": "DEBUG",
+  "enable_syslog": true,
+  "acl_enforce_version_8": false
+}

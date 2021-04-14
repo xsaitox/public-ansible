@@ -1,0 +1,69 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Validacion de parametros de vCenter
+      assert:
+        that:
+          - vmware_host is defined
+          - vmware_user is defined
+          - vmware_password is defined
+
+        fail_msg: No se ha definido parametros de vCenter asociado a esta ejecucion
+        success_msg: Validacion exitosa de parametros vCenter
+
+    - name: Validacion de variables necesarias
+      assert:
+        that:
+          - jobtemplate_name is defined
+          - jobtemplate_filter is defined
+          - jobtemplate_command is defined
+        fail_msg: No se ha definido una o mas variables necesarias':' jobtemplate_name, jobtemplate_filter, jobtemplate_command
+        success_msg: Validacion exitosa de variables necesarias
+
+    - name: Obtener survey de Job Template {{ jobtemplate_name }}
+      shell: tower-cli job_template survey {{ jobtemplate_name }} > {{ jobtemplate_name }}.json
+      register: towercli_result
+
+    - name: Obtener info de la ruta {{ jobtemplate_name }}.json
+      stat:
+        path: "{{ jobtemplate_name }}.json"
+      register: jobtemplate_file
+
+    - name: Verificar existencia del archivo {{ jobtemplate_name }}.json
+      assert:
+        that:
+          - jobtemplate_file.stat.exists
+        fail_msg: No existe el archivo {{ jobtemplate_name }}.json
+        success_msg: Validacion existosa de archivo
+    
+    - name: Ejecutar comando de generacion de contenidos de formulario
+      command: "{{ jobtemplate_command }}"
+      register: ps1_result
+    
+    - name: Capturar salida de comando anterior en variable
+      set_fact:
+        cmd_result: "{{ ps1_result.stdout_lines | join('\\n') }}"
+    
+    - name: Crear archivo de filtros JQ
+      template:
+        src: files/{{ jobtemplate_filter }}.jq.j2
+        dest: "{{ jobtemplate_name}}.jq"
+
+    - name: Alterar definicion de job template
+      shell: jq -r -a -f {{ jobtemplate_name }}.jq {{ jobtemplate_name }}.json > {{ jobtemplate_name }}_new.json
+
+    - name: Actualizar survey de template {{ jobtemplate_name }}
+      command: tower-cli job_template modify --name {{ jobtemplate_name }} --survey-spec=@{{ jobtemplate_name }}_new.json
+      register: output
+      ignore_errors: yes
+    
+    - name: Eliminar archivos temporales
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ jobtemplate_name }}.json"
+        - "{{ jobtemplate_name }}_new.json"
+        - "{{ jobtemplate_name}}.jq"

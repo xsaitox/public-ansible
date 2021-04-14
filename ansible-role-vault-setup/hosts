@@ -1,0 +1,8 @@
+[vault]
+#vault1 ansible_host=VAULT-NODE-1
+#vault2 ansible_host=VAULT-NODE-2
+#vault3 ansible_host=VAULT-NODE-3
+
+[all:vars]
+#ansible_user: ubuntu
+#ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ubuntu@BASTION-HOST"'

@@ -1,0 +1,36 @@
+---
+- hosts: all
+  vars:
+    custom_user: challenge
+  gather_facts: no
+  tasks:
+    - name: Eliminar rol arengifoc.elk
+      file:
+        path: roles/arengifoc.elk
+        state: absent
+      delegate_to:  localhost
+
+    - name: Descargar rol arengifoc.elk
+      command: ansible-galaxy install -p roles -r roles/requirements.yml
+      delegate_to:  localhost
+
+    - name: Creacion de usuario {{ custom_user }}
+      user:
+        name: challenge
+        state: present
+      become: yes
+
+    - name: Configuracion de sudo para usuario {{ custom_user }}
+      copy:
+        dest: /etc/sudoers.d/{{ custom_user }}
+        content: "{{ custom_user }} ALL=(ALL) NOPASSWD: ALL"
+        validate: /usr/sbin/visudo -cf %s
+      become: yes
+
+- hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Invocar rol de ELK para cada nodo
+      include_role:
+        name: arengifoc.elk

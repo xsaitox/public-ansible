@@ -1,0 +1,128 @@
+---
+- name: Instalar y configurar Consul server
+  hosts: consul
+  become: yes
+  vars:
+    consul_role: server
+  roles:
+    - ansible-role-consul-setup
+
+- name: Despliegue de Consul Agent
+  hosts: vault
+  become: yes
+  vars:
+    consul_role: server
+  tasks:
+    - name: Instalar y configurar Consul Agent
+      when:
+        - vault_storage is defined
+        - vault_storage == 'consul'
+        - groups.consul is defined
+        - groups.consul | length > 2
+      include_role:
+        name: ansible-role-consul-setup
+      vars:
+        consul_role: agent
+
+- name: Instalar y configurar Vault
+  hosts: vault
+  become: yes
+  vars:
+    deploy_action: install
+  tasks:
+    - name: Instalar y configurar Vault
+      when:
+        (vault_storage == 'raft' and groups.vault | length > 2) or
+        (vault_storage == 'consul' and groups.consul is defined and groups.consul | length > 2)
+      include_role:
+        name: ansible-role-vault-setup
+
+- name: Inicializar Vault en el 1er nodo ({{ groups['vault'][0] }})
+  hosts: "{{ groups['vault'][0] }}"
+  become: yes
+  vars:
+    deploy_action: initialize
+  tasks:
+    - name:
+      when:
+        (vault_storage == 'raft' and groups.vault | length > 2) or
+        (vault_storage == 'consul' and groups.consul is defined and groups.consul | length > 2)
+      include_role: 
+        name: ansible-role-vault-setup
+
+- name: Procesar informacion de inicializacion de Vault
+  hosts: localhost
+  become: no
+  vars:
+    deploy_action: install
+    vault_init_file: vault-info.txt
+  tasks:
+    - name: Alistar archivo de informacion de Vault
+      copy:
+        dest: "{{ vault_init_file }}"
+        content: ""
+
+    - name: Bloque
+      when:
+        - deploy_action != 'uninstall'
+        - hostvars[groups['vault'][0]].vault_init_info is defined
+      block:
+        - name: Guardar informacion de inicializacion de Vault
+          copy:
+            dest: "{{ vault_init_file }}"
+            content: "{{ hostvars[groups['vault'][0]].vault_init_info }}"
+
+        - name: Guardar informacion de llaves Shamir
+          when: item | regex_search('(Unseal|Recovery) Key.*$', multiline=True, ignorecase=False)
+          set_fact:
+            shamir_keys: "{{ shamir_keys | default([]) + [item | regex_search('(Unseal|Recovery) Key.*$', multiline=True, ignorecase=False) | regex_search(':\\s.*$', multiline=False) | regex_replace('(:|\\s)','')] }}"
+          with_lines: cat {{ vault_init_file }}
+          loop_control:
+            index_var: index
+            label: Linea {{ index }}...
+
+        - name: Guardar informacion de token
+          set_fact:
+            vault_token: "{{ hostvars[groups['vault'][0]].vault_init_info | regex_search('Token.*$', multiline=True, ignorecase=True) | regex_search('\\s.*$', multiline=False) | regex_replace('\\s','') }}"
+
+- name: Apertura y personalizacion de Vault en el 1er nodo ({{ groups['vault'][0] }})
+  hosts: "{{ groups['vault'][0] }}"
+  become: yes
+  vars:
+    deploy_action: unseal
+    vault_addr: "{{ vault_addr }}"
+    shamir_keys: "{{ hostvars['localhost'].shamir_keys }}"
+  tasks:
+    - name: Bloque
+      when:
+        - deploy_action != 'uninstall'
+        - hostvars[groups['vault'][0]].vault_init_info is defined
+      block:
+        - name: Apertura de Vault
+          include_role:
+            name: ansible-role-vault-setup
+
+        - name: Personalizacion de Vault
+          include_role:
+            name: ansible-role-vault-setup
+          vars:
+            deploy_action: customize
+            vault_token: "{{ hostvars['localhost'].vault_token }}"
+
+- name: Apertura de los nodos de Vault restantes
+  hosts: "{{ groups['vault'][1:] }}"
+  become: yes
+  vars:
+    deploy_action: unseal
+    shamir_keys: "{{ hostvars['localhost'].shamir_keys }}"
+    vault_token: "{{ hostvars['localhost'].vault_token }}"
+  tasks:
+    - name: Bloque
+      when:
+        - deploy_action != 'uninstall'
+        - hostvars[groups['vault'][0]].vault_init_info is defined
+      block:
+        - name: Apertura de Vault
+          include_role:
+            name: ansible-role-vault-setup
+

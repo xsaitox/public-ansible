@@ -1,0 +1,73 @@
+Vagrant.configure("2") do |config|
+    config.vm.define "elasticsearch" do |elasticsearch|
+        elasticsearch.vm.box = "centos/7"
+        elasticsearch.vm.hostname = "elasticsearch"
+        elasticsearch.vm.network "private_network", ip: "192.168.33.141"
+        elasticsearch.vm.provider "virtualbox" do |vb1|
+            vb1.memory = "2048"
+            vb1.cpus = 1
+            vb1.name = "elasticsearch"
+            elasticsearch_disk = 'elasticsearch_data.vmdk'
+            unless File.exist?(elasticsearch_disk)
+                vb1.customize ['createhd', '--filename', elasticsearch_disk, '--size', 10 * 1024]
+            end
+            vb1.customize ['storageattach', :id, '--storagectl', 'IDE', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', elasticsearch_disk]
+        end
+        elasticsearch.vm.provision "ansible" do |ansible1|
+            ansible1.playbook = "site.yml"
+        end
+    end
+
+    config.vm.define "logstash" do |logstash|
+        logstash.vm.box = "centos/7"
+        logstash.vm.hostname = "logstash"
+        logstash.vm.network "private_network", ip: "192.168.33.142"
+        logstash.vm.provider "virtualbox" do |vb1|
+            vb1.memory = "2048"
+            vb1.cpus = 1
+            vb1.name = "logstash"
+            logstash_disk = 'logstash_data.vmdk'
+            unless File.exist?(logstash_disk)
+                vb1.customize ['createhd', '--filename', logstash_disk, '--size', 5 * 1024]
+            end
+            vb1.customize ['storageattach', :id, '--storagectl', 'IDE', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', logstash_disk]
+        end
+        logstash.vm.provision "ansible" do |ansible2|
+            ansible2.playbook = "site.yml"
+        end
+    end
+    
+    config.vm.define "kibana" do |kibana|
+        kibana.vm.box = "centos/7"
+        kibana.vm.hostname = "kibana"
+        kibana.vm.network "private_network", ip: "192.168.33.143"
+        kibana.vm.provider "virtualbox" do |vb1|
+            vb1.memory = "2048"
+            vb1.cpus = 1
+            vb1.name = "kibana"
+            kibana_disk = 'kibana_data.vmdk'
+            unless File.exist?(kibana_disk)
+                vb1.customize ['createhd', '--filename', kibana_disk, '--size', 5 * 1024]
+            end
+            vb1.customize ['storageattach', :id, '--storagectl', 'IDE', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', kibana_disk]
+        end
+        kibana.vm.provision "ansible" do |ansible3|
+            ansible3.playbook = "site.yml"
+        end
+    end
+    
+    config.vm.define "maven" do |maven|
+        maven.vm.box = "centos/7"
+        maven.vm.hostname = "maven"
+        maven.vm.network "private_network", ip: "192.168.33.144"
+        maven.vm.provider "virtualbox" do |vb1|
+            vb1.memory = "512"
+            vb1.cpus = 1
+            vb1.name = "maven"
+        end
+        maven.vm.provision "ansible" do |ansible4|
+            ansible4.playbook = "site.yml"
+        end
+    end
+    
+end

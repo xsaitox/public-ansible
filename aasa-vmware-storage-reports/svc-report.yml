@@ -1,0 +1,18 @@
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: Obtener reporte de LUNs desde SVC
+      raw: svcinfo lsvdisk -unit gb
+      register: svc_result
+    
+    - name: Guardar nombre de host en variable
+      set_fact:
+        group_name: "{{ hostvars[ansible_host].group_names | first }}"
+      no_log: yes
+    
+    - name: Guardar resultado en archivo local
+      copy:
+        dest: files/{{ group_name }}.svc
+        content: "{{ svc_result.stdout }}"
+      delegate_to: localhost

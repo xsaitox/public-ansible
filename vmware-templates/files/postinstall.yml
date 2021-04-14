@@ -1,0 +1,31 @@
+---
+- hosts: all
+  tasks:
+    - include_role:
+        name: canvia.os-basevars
+
+    - include_role:
+        name: canvia.os-register
+      vars:
+        os_register_state: present
+
+    - include_role:
+        name: canvia.os-update
+
+    - include_role:
+        name: canvia.os-baseline
+
+    - include_role:
+        name: canvia.os-hardening
+
+    - include_role:
+        name: canvia.os-users
+
+    - include_role:
+        name: canvia.os-monitoring
+
+    - include_role:
+        name: canvia.os-register
+      vars:
+        os_register_state: absent
+

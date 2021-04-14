@@ -1,0 +1,6 @@
+# Recoleccion de estadisticas de nmon
+0 0 * * * root /scripts/reportes.sh -C
+0 0 * * * root /scripts/reportes.sh -r -d
+0 0 1 * * root /scripts/reportes.sh -r -m
+1 * * * * root /scripts/reportes.sh -c -d
+1 * * * * root /scripts/reportes.sh -c -m

@@ -1,0 +1,8 @@
+---
+- name: Aplicar hardening a Linux
+  include_tasks: linux-hardening.yml
+  when: ansible_system == 'Linux'
+
+- name: Aplicar hardening a Windows
+  include_tasks: windows-hardening.yml
+  when: ansible_system == 'Win32NT'

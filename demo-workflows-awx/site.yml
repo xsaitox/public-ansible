@@ -1,0 +1,43 @@
+---
+- hosts: all
+  gather_facts: no
+  vars:
+    python_available: yes
+    result_codes: [0]
+    smtp_server: 10.100.13.31
+    mail_from: arengifoc@canvia.com
+    mail_to: arengifoc@canvia.com
+    mail_cc: arengifoc@gmail.com
+    ruta: /
+    profile: ~/.profile
+  tasks:
+    - name: Validacion de variables necesarias
+      assert:
+        that:
+          - script is defined
+        fail_msg: "Alguna de las variables necesarias no han sido definidas: script"
+        success_msg: "Validacion exitosa de variables necesarias"
+
+    - name: Definir ruta por defecto
+      set_fact:
+        ruta: /
+      when: ruta is not defined
+
+    - name: Sin python
+      when: not python_available
+      include_tasks: run-without-python.yml
+
+    - name: Con python 
+      when: python_available
+      include_tasks: run-with-python.yml
+
+    - name: Enviar reporte por correo 
+      mail: 
+        host: "{{ smtp_server }}" 
+        port: 25 
+        from: "{{ mail_from }}" 
+        to: "{{ mail_to }}"
+        cc: "{{ mail_cc | default(omit) }}"
+        subject: Reporte de ejecucion de malla {{ tower_job_template_name | default('local') }} (ID {{ tower_job_id | default('null') }})
+        body: "*** SALIDA ESTANDAR ***\n\n{{ script_result.stdout | default('') }}\n\n\n*** SALIDA DE ERROR ***\n\n{{ script_result.stderr | default('') | regex_replace('Connection to.*closed.', '') }}\n\n\n*** LINEA DE EJECUCION ***\n\n{{ script_result.cmd if script_result.cmd is defined else script }} : {{ script_result.msg | default('') }}"
+      delegate_to: localhost

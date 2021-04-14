@@ -1,0 +1,9 @@
+[Unit]
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/scripts/reportes.sh -c -m
+
+[Install]
+WantedBy=default.target

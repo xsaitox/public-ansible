@@ -1,0 +1,38 @@
+- name: Incluir variables
+  include_vars:
+    dir: ../vars/
+    extensions:
+      - yml
+
+- name: Importar rol de variables base
+  include_role:
+    name: canvia.os-basevars
+
+- name: Importar rol de instalacion de antivirus
+  include_role:
+    name: canvia.os-antivirus
+
+- name: Configuraciones personalizadas de sistema
+  include_role:
+    name: canvia.os-customization
+
+- name: Linux
+  block:
+    - name: Cambiar contrasena
+      user:
+        name: "root"
+        password: "{{ admin_password | password_hash('sha512') }}"
+        update_password: always
+
+    - name: Reiniciar SSH
+      service:
+        name: sshd
+        state: restarted
+  when: so_type == "Linux"
+
+- name: Cambiar contraseña de administrador de Windows
+  win_user:
+    name: "administrator"
+    password: "{{  admin_password  }}"
+    password_expired: "yes"
+  when: so_type == "Windows"

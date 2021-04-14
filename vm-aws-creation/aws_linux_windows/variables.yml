@@ -1,0 +1,17 @@
+---
+aws_friendly_region: 'us-east-1 : US East (N. Virginia)'
+vm_size: t3a.small
+#os_name: Amazon Linux 2
+#os_name: Amazon Linux
+#os_name: Ubuntu Server Bionic 18.04 x86_64
+#os_name: CentOS 7 x86_64
+#os_name: SLES 12 SP3 x86_64
+#os_name: SLES 12 SP4 x86_64
+#os_name: RHEL 8.0 x86_64
+#os_name: RHEL 7.6 x86_64
+
+#os_name: Windows Server 2008 R2
+#os_name: Windows Server 2012 R2
+os_name: Windows Server 2016
+#os_name: Windows Server 2019
+

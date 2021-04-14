@@ -1,0 +1,59 @@
+---
+- name: Habilitar funcionalidad de servicio y administracion SNMP
+  win_feature:
+    name: "{{ item }}"
+    include_sub_features: yes
+    state: present
+  with_items:
+    - SNMP-service
+    - RSAT-SNMP
+
+- name: Configurar agente SNMP
+  win_shell: |
+    reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\SNMP\Parameters\ValidCommunities" /v {{ snmp_community }} /t REG_DWORD /d 4 /f | Out-Null
+    $regkeypath= "HKLM:\SYSTEM\CurrentControlSet\services\SNMP\Parameters\PermittedManagers" 
+    $value = (Get-ItemProperty $regkeypath).1 -eq $null 
+    If ($value1 -eq $False) { Remove-ItemProperty -path $regkeypath -name 1} 
+    # Else {Write-Host "The value does not exist"}
+    # reg delete "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\SNMP\Parameters\PermittedManagers" /v 1 /f | Out-Null
+
+- name: Habilitar servicio SNMP
+  win_service:
+    name: SNMP
+    state: restarted
+    start_mode: auto
+
+- name: Descargar programas binarios localmente
+  shell: |
+    smbclient {{ smbinst_share }} -U '{{ smbinst_domain }}\{{ smbinst_user }}'%'{{ smbinst_pass }}' \
+      -c "recurse ; prompt off ; cd software-iac/windows ; mget pandora-agent"
+  vars:
+    ansible_connection: local
+
+- name: Copiar instalador de agente Pandora para Windows
+  win_copy:
+    src: "{{ path_pandoraagentexe | dirname | basename }}/{{ path_pandoraagentexe | basename }}"
+    dest: C:\Windows\temp\
+
+- name: Instalar agente de Pandora en Windows
+  win_package:
+    path: C:\Windows\temp\{{ path_pandoraagentexe | basename }}
+    product_id: "{{ productid_pandoraagent }}"
+    arguments: /S
+    state: present
+
+- name: Dejar deshabilitado el inicio de agente Pandora
+  win_service:
+    name: PandoraFMSAgent
+    start_mode: disabled
+    state: stopped
+
+- name: Borrar archivos de instalacion usados localmente
+  shell: rm -rf {{ path_pandoraagentexe | dirname | basename }}
+  vars:
+    ansible_connection: local
+
+- name: Borrar archivos de instalacion usados remotamente
+  win_file:
+    path: C:\Windows\temp\{{ path_pandoraagentexe | basename }}
+    state: absent
