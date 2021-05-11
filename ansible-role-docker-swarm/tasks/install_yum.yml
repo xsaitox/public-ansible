@@ -1,0 +1,19 @@
+---
+- name: YUM - Install dependencies
+  yum:
+    name: "{{ dependencies[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution not in ["Ubuntu"]
+
+- name: YUM - Configure repositories
+  command: yum-config-manager --add-repo {{ repositories[ansible_distribution].repo }}
+  args:
+    creates: /etc/yum.repos.d/{{ repositories[ansible_distribution].repo | basename }}
+  become: yes
+  when: ansible_distribution == "CentOS"
+
+- name: YUM - Install packages
+  yum:
+    name: "{{ packages[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution not in ["Ubuntu"]

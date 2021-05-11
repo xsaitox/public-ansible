@@ -1,0 +1,15 @@
+---
+- name: Initialize Swarm
+  docker_swarm:
+    state: present
+    advertise_addr: "{{ listen_addr + ':2377' }}"
+    listen_addr: "{{ listen_addr + ':2377' }}"
+  become: yes
+  register: result_init
+  no_log: yes
+
+- name: Save join tokens for future use
+  set_fact:
+    manager_join_token: "{{ result_init.swarm_facts.JoinTokens.Manager }}"
+    worker_join_token: "{{ result_init.swarm_facts.JoinTokens.Worker }}"
+  no_log: yes

@@ -1,0 +1,25 @@
+---
+- name: APT - Install dependencies
+  apt:
+    name: "{{ dependencies[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution in ["Ubuntu"]
+
+- name: APT - Configure key
+  apt_key:
+    url: "{{ repositories[ansible_distribution].key }}"
+    state: present
+  become: yes
+
+- name: APT - Configure repositories
+  apt_repository:
+    repo: deb [arch=amd64] {{ repositories[ansible_distribution].repo }} {{ ansible_distribution_release }} stable
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: APT - Install packages
+  apt:
+    name: "{{ packages[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution in ["Ubuntu"]

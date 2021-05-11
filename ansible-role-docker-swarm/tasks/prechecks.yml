@@ -1,0 +1,21 @@
+---
+- name: Check if /etc/os-release exists
+  stat:
+    path: /etc/os-release
+  register: result_os_release
+
+- name: Check if systemctl exists
+  command: which systemctl
+  register: result_systemctl
+  failed_when: result_systemctl.rc not in [0,1]
+  environment:
+    PATH: "/sbin:/usr/sbin:/bin:/usr/bin"
+
+- name: Check if conditions for a supported OS are met
+  assert:
+    that:
+      - result_os_release.stat.exists
+      - result_systemctl.rc == 0
+      - ansible_distribution in ["RedHat","CentOS","Amazon","Ubuntu"]
+    quiet: yes
+    fail_msg: This OS is not supported as it doesn't seem to support Systemd

@@ -1,0 +1,11 @@
+---
+- name: Join {{ node_role }} nodes to the Swarm
+  docker_swarm:
+    state: join
+    advertise_addr: "{{ listen_addr + ':2377' }}"
+    listen_addr: "{{ listen_addr + ':2377' }}"
+    join_token: "{{ join_token }}"
+    remote_addrs:
+      - "{{ remote_addr + ':2377' }}"
+  become: yes
+  register: result_join

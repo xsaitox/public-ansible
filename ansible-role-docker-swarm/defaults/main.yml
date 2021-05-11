@@ -1,0 +1,60 @@
+---
+dependencies:
+  CentOS:
+    - epel-release
+    - yum-utils
+  Ubuntu:
+    - apt-transport-https
+    - ca-certificates
+    - gnupg-agent
+    - software-properties-common
+packages:
+  Amazon:
+    - device-mapper-persistent-data
+    - docker
+    - jq
+    - lvm2
+    - python3
+    - python3-pip
+    - python3-setuptools
+    - python-requests
+  RedHat:
+    - device-mapper-persistent-data
+    - docker
+    - jq
+    - lvm2
+    - python-setuptools
+    - python3
+    - python3-pip
+    - python3-setuptools
+  CentOS:
+    - containerd.io
+    - device-mapper-persistent-data
+    - docker-ce
+    - docker-ce-cli
+    - jq
+    - lvm2
+    - python-requests
+    - python-setuptools
+    - python3
+    - python3-pip
+    - python3-setuptools
+  Ubuntu:
+    - containerd.io
+    - docker-ce
+    - docker-ce-cli
+    - jq
+    - lvm2
+    - python3
+    - python3-pip
+    - python3-requests
+    - python3-setuptools
+repositories:
+  CentOS:
+    repo: https://download.docker.com/linux/centos/docker-ce.repo
+  Ubuntu:
+    repo: https://download.docker.com/linux/ubuntu
+    key: https://download.docker.com/linux/ubuntu/gpg
+python_modules:
+  - docker
+  - requests
