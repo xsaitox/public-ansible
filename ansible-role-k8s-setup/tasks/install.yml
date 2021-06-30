@@ -1,0 +1,58 @@
+---
+- name: YUM - Install software
+  include_tasks:
+    file: install_yum.yml
+  when: ansible_distribution not in ["Ubuntu"]
+
+- name: APT - Install software
+  include_tasks:
+    file: install_apt.yml
+  when: ansible_distribution in ["Ubuntu"]
+
+- name: Look for Python 3
+  command: which python3
+  register: result_python3
+  check_mode: no
+  failed_when: result_python3.rc not in [0,1]
+
+- name: Set interpreter to Python 3
+  set_fact:
+    ansible_python_interpreter: /usr/bin/python3
+  when: result_python3.rc == 0
+
+- name: Install Python modules
+  pip:
+    state: present
+    name: "{{ python_modules }}"
+  become: yes
+
+- name: Turn off swap
+  command: swapoff -a
+  become: yes
+
+- name: Disable swap
+  replace:
+    path: /etc/fstab
+    regexp: '(^[^#].*swap.*)$'
+    replace: '#\1'
+  become: yes
+
+- name: Gather service facts
+  service_facts:
+
+- name: Docker - Configure cgroup driver
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    backup: yes
+  become: yes
+  register: result_docker_config
+  when:
+    - ansible_facts.services["docker.service"].state is defined
+    - ansible_facts.services["docker.service"].state == "running"
+
+- name: Docker - Restart service to apply changes
+  service:
+    name: docker
+    state: restarted
+  when: result_docker_config.changed

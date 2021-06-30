@@ -1,0 +1,24 @@
+---
+- name: Check for required variables
+  assert:
+    that:
+      - pod_network_cidr is defined
+      - pod_network_cidr != ""
+    quiet: yes
+    fail_msg: One or more required variables were not defined
+
+- name: Check etcd status
+  uri:
+    url: https://localhost:6443/readyz
+    validate_certs: no
+    return_content: yes
+  register: result_check_etcd
+  become: yes
+  ignore_errors: yes
+  check_mode: no
+
+- name: Initialize the cluster
+  command: kubeadm init --pod-network-cidr {{ pod_network_cidr }} --ignore-preflight-errors=NumCPU --apiserver-cert-extra-sans={{ listen_addr }}
+  become: yes
+  register: result_k8s_init
+  when: result_check_etcd.content != "ok" or result_check_etcd.failed

@@ -1,0 +1,24 @@
+---
+dependencies:
+  CentOS:
+    - libselinux-python
+    - libselinux-python3
+python_modules:
+packages:
+  CentOS:
+    - kubelet
+    - kubeadm
+    - kubectl
+repositories:
+  CentOS:
+    keys:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    url: https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+  Ubuntu:
+    keys:
+      - https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    # repo: 
+
+# Network CIDR for the Pods
+pod_network_cidr: ""

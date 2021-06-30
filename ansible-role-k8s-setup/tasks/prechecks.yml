@@ -1,0 +1,9 @@
+---
+- name: Check if conditions for a supported OS are met
+  assert:
+    that:
+      - ansible_service_mgr is defined
+      - ansible_service_mgr == "systemd"
+      - ansible_distribution in ["RedHat","CentOS","Amazon","Ubuntu"]
+    quiet: yes
+    fail_msg: This OS is not supported as it doesn't seem to support Systemd
