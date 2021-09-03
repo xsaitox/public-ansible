@@ -6,3 +6,9 @@
 - name: Aplicar actualizaciones de Windows
   include_tasks: windows-update.yml
   when: ansible_system == 'Win32NT'
+
+- name: Demo
+  set_fact:
+  when: ansible_system == 'Win32NT'
+
+- include_tasks:
