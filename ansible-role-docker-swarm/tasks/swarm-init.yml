@@ -13,3 +13,6 @@
     manager_join_token: "{{ result_init.swarm_facts.JoinTokens.Manager }}"
     worker_join_token: "{{ result_init.swarm_facts.JoinTokens.Worker }}"
   no_log: yes
+  when:
+    - result_init.swarm_facts.JoinTokens.Worker is defined
+    - result_init.swarm_facts.JoinTokens.Manager is defined

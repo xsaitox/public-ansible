@@ -10,6 +10,7 @@
   failed_when: result_systemctl.rc not in [0,1]
   environment:
     PATH: "/sbin:/usr/sbin:/bin:/usr/bin"
+  check_mode: False
 
 - name: Check if conditions for a supported OS are met
   assert:

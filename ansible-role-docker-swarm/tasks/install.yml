@@ -9,16 +9,6 @@
     file: install_apt.yml
   when: ansible_distribution in ["Ubuntu"]
 
-- name: Look for Python 3
-  command: which python3
-  register: result_python3
-  failed_when: result_python3.rc not in [0,1]
-
-- name: Set interpreter to Python 3
-  set_fact:
-    ansible_python_interpreter: /usr/bin/python3
-  when: result_python3.rc == 0
-
 - name: Install Python modules
   pip:
     state: present

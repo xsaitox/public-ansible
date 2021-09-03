@@ -1,9 +1,17 @@
 ---
-- name: YUM - Install dependencies
+- name: YUM - Install dependencies (Others)
   yum:
     name: "{{ dependencies[ansible_distribution] }}"
   become: yes
-  when: ansible_distribution not in ["Ubuntu"]
+  when: ansible_distribution not in ["Ubuntu","Amazon"]
+
+- name: YUM - Install dependencies (Amazon)
+  yum:
+    name: "{{ dependencies[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution == "Amazon"
+  vars:
+    ansible_python_interpreter: /usr/bin/python
 
 - name: YUM - Configure repositories
   command: yum-config-manager --add-repo {{ repositories[ansible_distribution].repo }}
@@ -12,8 +20,16 @@
   become: yes
   when: ansible_distribution == "CentOS"
 
-- name: YUM - Install packages
+- name: YUM - Install packages (Others)
   yum:
     name: "{{ packages[ansible_distribution] }}"
   become: yes
-  when: ansible_distribution not in ["Ubuntu"]
+  when: ansible_distribution not in ["Ubuntu","Amazon"]
+
+- name: YUM - Install packages (Amazon)
+  yum:
+    name: "{{ packages[ansible_distribution] }}"
+  become: yes
+  when: ansible_distribution == "Amazon"
+  vars:
+    ansible_python_interpreter: /usr/bin/python

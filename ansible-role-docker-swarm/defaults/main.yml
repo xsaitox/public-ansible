@@ -8,6 +8,9 @@ dependencies:
     - ca-certificates
     - gnupg-agent
     - software-properties-common
+  Amazon:
+    - python-pip
+    - yum-utils
 packages:
   Amazon:
     - device-mapper-persistent-data
