@@ -1,0 +1,46 @@
+---
+- name: Install Docker Engine in all nodes
+  hosts: all
+  gather_facts: no
+  roles:
+    - role: ansible-role-docker-swarm
+      vars:
+        role_action: install
+
+- name: Initialize Docker Swarm
+  hosts: "{{ groups['managers'][0] }}"
+  gather_facts: no
+  roles:
+    - role: ansible-role-docker-swarm
+      vars:
+        role_action: init
+
+- name: Join remaining Manager nodes to the Swarm
+  hosts: "{{ groups['managers'][1:] }}"
+  gather_facts: no
+  tasks:
+    - include_role:
+        name: ansible-role-docker-swarm
+      vars:
+        role_action: join
+        join_token: "{{ hostvars[groups['managers'][0]].manager_join_token }}"
+        remote_addr: "{{ hostvars[groups['managers'][0]].listen_addr }}"
+        node_role: manager
+      when:
+        - hostvars[groups['managers'][0]].manager_join_token is defined
+        - hostvars[groups['managers'][0]].listen_addr is defined
+
+- name: Join Worker nodes to the Swarm
+  hosts: "{{ groups['workers'] }}"
+  gather_facts: no
+  tasks:
+    - include_role:
+        name: ansible-role-docker-swarm
+      vars:
+        role_action: join
+        join_token: "{{ hostvars[groups['managers'][0]].worker_join_token }}"
+        remote_addr: "{{ hostvars[groups['managers'][0]].listen_addr }}"
+        node_role: worker
+      when:
+        - hostvars[groups['managers'][0]].manager_join_token is defined
+        - hostvars[groups['managers'][0]].listen_addr is defined
