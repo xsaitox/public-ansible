@@ -18,7 +18,7 @@ repositories:
   Ubuntu:
     keys:
       - https://packages.cloud.google.com/apt/doc/apt-key.gpg
-    # repo: 
+    # repo:
 
 # Network CIDR for the Pods
 pod_network_cidr: ""
